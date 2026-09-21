@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — History{% endblock %}
+
+{% block content %}
+<div x-data="historyPage()" x-init="init()">
+  <div class="section-title"><i class="bi bi-clock-history"></i> Outfit History</div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state">
+      <i class="bi bi-person-x"></i>
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
+
+  <template x-if="hasUser && !loading && entries.length === 0">
+    <div class="empty-state">
+      <i class="bi bi-clock"></i>
+      <p>No outfits generated yet.</p>
+      <a href="/generator" class="btn btn-primary"><i class="bi bi-stars"></i> Generate an outfit</a>
+    </div>
+  </template>
+
+  <template x-for="entry in entries" :key="entry.id">
+    <div class="card-soft">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <b x-text="entry.occasion || 'Any occasion'"></b>
+          <div class="muted small" x-text="fmtDate(entry.created_at)"></div>
+          <div class="muted small" x-show="entry.context && entry.context.weather"
+               x-text="weatherLabel(entry.context)"></div>
+        </div>
+        <button class="btn btn-sm btn-outline-danger" @click="remove(entry.id)"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="row g-2">
+        <template x-for="(o, idx) in entry.outfits" :key="idx">
+          <div class="col-6">
+            <div style="border:1px solid var(--wa-border);border-radius:12px;padding:8px;">
+              <div class="small fw-bold mb-1">Option <span x-text="idx+1"></span>
+                <span class="confidence" style="float:right;padding:1px 7px;font-size:0.7rem;" x-text="o.confidence_score + '%'"></span>
+              </div>
+              <div class="d-flex gap-1 flex-wrap">
+                <template x-for="p in pieces(o)" :key="p.item_id">
+                  <template x-if="p.image_url">
+                    <img :src="p.image_url" :title="p.name" style="width:38px;height:38px;object-fit:cover;border-radius:8px;" />
+                  </template>
+                </template>
+              </div>
+              <div class="small muted mt-1" x-text="summary(o)"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function historyPage() {
+  return {
+    entries: [], loading: false, hasUser: false,
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      this.loading = true;
+      try { this.entries = await WA.get(`/api/outfits/history?user_id=${uid}`); }
+      catch (e) { waToast(e.message, "error"); }
+      finally { this.loading = false; }
+    },
+    pieces(o) {
+      return [o.upper, o.lower, o.shoes, o.outerwear, ...(o.accessories || [])].filter(Boolean);
+    },
+    summary(o) {
+      return this.pieces(o).map(p => p.name).join(" + ");
+    },
+    fmtDate(s) {
+      try { return new Date(s + (s.endsWith('Z') ? '' : 'Z')).toLocaleString(); }
+      catch { return s; }
+    },
+    weatherLabel(ctx) {
+      const w = ctx && ctx.weather;
+      if (!w) return "";
+      const parts = [];
+      if (w.temperature_c != null) parts.push(Math.round(w.temperature_c) + "°C");
+      if (w.condition) parts.push(w.condition);
+      if (w.location_name) parts.push(w.location_name);
+      return parts.join(" · ");
+    },
+    async remove(id) {
+      if (!confirm("Delete this history entry?")) return;
+      try {
+        await WA.del(`/api/outfits/history/${id}`);
+        this.entries = this.entries.filter(e => e.id !== id);
+        waToast("Deleted", "success");
+      } catch (e) { waToast(e.message, "error"); }
+    },
+  };
+}
+</script>
+{% endblock %}

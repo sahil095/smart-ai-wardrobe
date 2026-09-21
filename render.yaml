@@ -1,0 +1,34 @@
+# Render Blueprint for Wardrobe AI
+# Docs: https://render.com/docs/blueprint-spec
+# On Render: New + -> Blueprint -> connect this repo. Secrets (sync:false)
+# will be prompted in the dashboard and are never stored in git.
+services:
+  - type: web
+    name: wardrobe-ai
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Neon Postgres connection string (postgresql://...). Paste in dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # Groq
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: "openai/gpt-oss-120b"
+      # Cloudinary (image storage)
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Outfits per generation
+      - key: OUTFIT_COUNT
+        value: "2"

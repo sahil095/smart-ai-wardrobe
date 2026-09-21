@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1b2a" />
+  <title>{% block title %}Wardrobe AI{% endblock %}</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <!-- App styles -->
+  <link href="/static/css/app.css" rel="stylesheet" />
+</head>
+<body x-data="appShell()" x-init="init()">
+
+  <!-- Top app bar -->
+  <header class="app-bar">
+    <div class="app-bar-inner">
+      <a href="/" class="brand">
+        <i class="bi bi-hanger"></i>
+        <span>Wardrobe AI</span>
+      </a>
+      <div class="user-switch">
+        <select class="form-select form-select-sm" x-model="currentUserId" @change="onUserChange()">
+          <option value="">No profile</option>
+          <template x-for="u in users" :key="u.id">
+            <option :value="u.id" x-text="u.nickname || u.name"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Bottom tab bar -->
+  <nav class="tab-bar">
+    <a href="/" class="tab {% if active == 'home' %}active{% endif %}">
+      <i class="bi bi-house-door"></i><span>Home</span>
+    </a>
+    <a href="/wardrobe" class="tab {% if active == 'wardrobe' %}active{% endif %}">
+      <i class="bi bi-grid"></i><span>Wardrobe</span>
+    </a>
+    <a href="/add" class="tab tab-add {% if active == 'add' %}active{% endif %}">
+      <i class="bi bi-plus-lg"></i><span>Add</span>
+    </a>
+    <a href="/history" class="tab {% if active == 'history' %}active{% endif %}">
+      <i class="bi bi-clock-history"></i><span>History</span>
+    </a>
+    <a href="/profile" class="tab {% if active == 'profile' %}active{% endif %}">
+      <i class="bi bi-person"></i><span>Profile</span>
+    </a>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast-wrap" x-show="toast.show" x-transition style="display:none;">
+    <div class="toast-box" :class="toast.type" x-text="toast.msg"></div>
+  </div>
+
+  <script>
+    const OUTFIT_COUNT = {{ outfit_count }};
+  </script>
+  <script src="/static/js/app.js"></script>
+  <!-- Alpine.js (after app.js so component factories are registered) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

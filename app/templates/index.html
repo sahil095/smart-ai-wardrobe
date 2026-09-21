@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Home{% endblock %}
+
+{% block content %}
+<div x-data="homePage()" x-init="init()">
+  <div class="hero">
+    <h1>What should I wear today?</h1>
+    <p x-text="greeting"></p>
+    <a href="/generator" class="btn btn-gradient btn-lg w-100">
+      <i class="bi bi-stars"></i> Generate today's outfit
+    </a>
+  </div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft mt-3">
+      <div class="section-title">Get started</div>
+      <p class="muted">Create your profile, then add the clothes you own. The AI only
+        ever suggests items from your own wardrobe.</p>
+      <a href="/profile" class="btn btn-primary w-100"><i class="bi bi-person-plus"></i> Create your profile</a>
+    </div>
+  </template>
+
+  <template x-if="hasUser">
+    <div>
+      <div class="quick-grid">
+        <a href="/wardrobe" class="quick-card">
+          <i class="bi bi-grid"></i>
+          <b x-text="stats.total + ' items'"></b>
+          <small>In your wardrobe</small>
+        </a>
+        <a href="/wardrobe?laundry=Clean" class="quick-card">
+          <i class="bi bi-basket"></i>
+          <b x-text="stats.clean + ' clean'"></b>
+          <small>Ready to wear</small>
+        </a>
+        <a href="/add" class="quick-card">
+          <i class="bi bi-plus-circle"></i>
+          <b>Add item</b>
+          <small>Grow your closet</small>
+        </a>
+        <a href="/history" class="quick-card">
+          <i class="bi bi-clock-history"></i>
+          <b>History</b>
+          <small>Past outfits</small>
+        </a>
+      </div>
+
+      <div class="card-soft mt-3">
+        <div class="section-title"><i class="bi bi-lightbulb"></i> How it works</div>
+        <ol class="muted mb-0" style="padding-left:18px;">
+          <li>Build your profile (body type, skin tone, style).</li>
+          <li>Add clothes with photos and tags.</li>
+          <li>Mark laundry status — only <b>Clean</b> items are used.</li>
+          <li>Generate {{ outfit_count }} outfit options based on weather & occasion.</li>
+        </ol>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function homePage() {
+  return {
+    hasUser: false,
+    greeting: "Your personal AI stylist.",
+    stats: { total: 0, clean: 0 },
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      try {
+        const user = await WA.get(`/api/users/${uid}`);
+        this.greeting = `Hi ${user.nickname || user.name}, let's get you dressed.`;
+        const items = await WA.get(`/api/wardrobe?user_id=${uid}`);
+        this.stats.total = items.length;
+        this.stats.clean = items.filter(i => i.laundry_status === "Clean").length;
+      } catch (e) { waToast(e.message, "error"); }
+    },
+  };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Outfit Generator{% endblock %}
+
+{% block content %}
+<div x-data="generatorPage()" x-init="init()">
+  <div class="section-title"><i class="bi bi-stars"></i> Outfit Generator</div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state">
+      <i class="bi bi-person-x"></i>
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <template x-if="hasUser">
+  <div>
+    <form class="card-soft" @submit.prevent="generate()">
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label">Occasion</label>
+          <select class="form-select" x-model="req.occasion">
+            <option value="">Any</option>
+            <template x-for="o in opts.occasions"><option x-text="o"></option></template>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Time of Day</label>
+          <select class="form-select" x-model="req.time_of_day">
+            <option value="">Any</option>
+            <template x-for="t in opts.time_of_day"><option x-text="t"></option></template>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Dress Code</label>
+          <select class="form-select" x-model="req.dress_code">
+            <option value="">Any</option>
+            <template x-for="d in opts.dress_codes"><option x-text="d"></option></template>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Color Preference</label>
+          <input class="form-control" x-model="req.color_preference" placeholder="e.g. earth tones" />
+        </div>
+      </div>
+
+      <label class="form-label mt-2">Comfort vs Style</label>
+      <div class="chip-group mb-2">
+        <template x-for="c in opts.comfort_style" :key="c">
+          <span class="chip" :class="{selected: req.comfort_vs_style === c}" @click="req.comfort_vs_style = c" x-text="c"></span>
+        </template>
+      </div>
+
+      <label class="form-label">Must-include favorite item (optional)</label>
+      <select class="form-select mb-2" x-model.number="req.favorite_item_id">
+        <option :value="null">None</option>
+        <template x-for="it in cleanItems" :key="it.id">
+          <option :value="it.id" x-text="it.name + ' (' + it.category + ')'"></option>
+        </template>
+      </select>
+
+      <div class="divider"></div>
+
+      <!-- Weather -->
+      <label class="form-label">Weather</label>
+      <div class="btn-group w-100 mb-2" role="group">
+        <input type="radio" class="btn-check" name="wmode" id="wauto" value="auto" x-model="weatherMode">
+        <label class="btn btn-outline-primary btn-sm" for="wauto">Auto (location)</label>
+        <input type="radio" class="btn-check" name="wmode" id="wcity" value="city" x-model="weatherMode">
+        <label class="btn btn-outline-primary btn-sm" for="wcity">City</label>
+        <input type="radio" class="btn-check" name="wmode" id="wman" value="manual" x-model="weatherMode">
+        <label class="btn btn-outline-primary btn-sm" for="wman">Manual</label>
+      </div>
+
+      <template x-if="weatherMode === 'auto'">
+        <div class="d-flex gap-2 align-items-center mb-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="detectLocation()">
+            <i class="bi bi-geo-alt"></i> Detect
+          </button>
+          <small class="muted" x-text="geoStatus"></small>
+        </div>
+      </template>
+      <template x-if="weatherMode === 'city'">
+        <input class="form-control mb-2" x-model="req.location_name" placeholder="City name (e.g. London)" />
+      </template>
+      <template x-if="weatherMode === 'manual'">
+        <div class="row g-2 mb-2">
+          <div class="col-6"><input type="number" class="form-control" x-model.number="req.manual_temp_c" placeholder="Temp °C" /></div>
+          <div class="col-6">
+            <select class="form-select" x-model="req.manual_condition">
+              <option value="">Condition</option>
+              <template x-for="w in opts.weather_suitability"><option x-text="w"></option></template>
+            </select>
+          </div>
+        </div>
+      </template>
+
+      <button type="submit" class="btn btn-gradient w-100" :disabled="loading">
+        <span x-show="!loading"><i class="bi bi-magic"></i> Generate {{ outfit_count }} outfits</span>
+        <span x-show="loading"><span class="spinner-border spinner-border-sm"></span> Styling…</span>
+      </button>
+    </form>
+
+    <!-- Weather strip -->
+    <template x-if="result && (result.weather.temperature_c !== null || result.weather.condition)">
+      <div class="weather-strip">
+        <i class="bi bi-cloud-sun" style="font-size:1.8rem;"></i>
+        <div>
+          <div class="temp" x-show="result.weather.temperature_c !== null">
+            <span x-text="Math.round(result.weather.temperature_c)"></span>°C
+          </div>
+          <small x-text="[result.weather.condition, result.weather.location_name].filter(Boolean).join(' · ')"></small>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="result && result.note">
+      <div class="alert alert-info py-2 small" x-text="result.note"></div>
+    </template>
+
+    <!-- Outfits -->
+    <template x-for="(o, idx) in (result ? result.outfits : [])" :key="idx">
+      <div class="outfit-card">
+        <div class="outfit-head">
+          <b>Option <span x-text="idx + 1"></span> <span class="muted small" x-show="result.used_ai">· AI</span></b>
+          <span class="confidence" x-text="o.confidence_score + '%'"></span>
+        </div>
+        <div class="pieces">
+          <template x-for="slot in slots(o)" :key="slot.key">
+            <div class="piece">
+              <template x-if="slot.piece && slot.piece.image_url">
+                <img :src="slot.piece.image_url" :alt="slot.piece.name" />
+              </template>
+              <template x-if="slot.piece && !slot.piece.image_url">
+                <div class="ph"><i class="bi bi-image"></i></div>
+              </template>
+              <template x-if="!slot.piece"><div class="ph"><i class="bi bi-dash"></i></div></template>
+              <span class="slot" x-text="slot.label"></span>
+              <small x-text="slot.piece ? slot.piece.name : '—'"></small>
+            </div>
+          </template>
+        </div>
+        <div class="outfit-detail">
+          <p x-show="o.reasoning"><span class="lbl">Why: </span><span x-text="o.reasoning"></span></p>
+          <p x-show="o.color_explanation"><span class="lbl">Colors: </span><span x-text="o.color_explanation"></span></p>
+          <p x-show="o.weather_suitability"><span class="lbl">Weather: </span><span x-text="o.weather_suitability"></span></p>
+          <p x-show="o.occasion_suitability"><span class="lbl">Occasion: </span><span x-text="o.occasion_suitability"></span></p>
+          <p x-show="o.styling_tips"><span class="lbl">Tips: </span><span x-text="o.styling_tips"></span></p>
+        </div>
+      </div>
+    </template>
+  </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function generatorPage() {
+  return {
+    opts: {}, hasUser: false, loading: false, result: null,
+    cleanItems: [], weatherMode: "manual", geoStatus: "",
+    req: {
+      user_id: null, occasion: "", time_of_day: "", dress_code: "",
+      color_preference: "", comfort_vs_style: "Balanced", favorite_item_id: null,
+      latitude: null, longitude: null, location_name: "",
+      manual_temp_c: null, manual_condition: "",
+    },
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      this.req.user_id = uid;
+      this.opts = await WA.get("/api/meta/options");
+      const items = await WA.get(`/api/wardrobe?user_id=${uid}&laundry_status=Clean`);
+      this.cleanItems = items;
+    },
+    slots(o) {
+      return [
+        { key: "upper", label: "Upper", piece: o.upper },
+        { key: "lower", label: "Lower", piece: o.lower },
+        { key: "shoes", label: "Shoes", piece: o.shoes },
+        { key: "acc", label: "Extra", piece: o.outerwear || (o.accessories && o.accessories[0]) || null },
+      ];
+    },
+    detectLocation() {
+      if (!navigator.geolocation) { this.geoStatus = "Geolocation not supported"; return; }
+      this.geoStatus = "Locating…";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.req.latitude = pos.coords.latitude;
+          this.req.longitude = pos.coords.longitude;
+          this.geoStatus = "Location set ✓";
+        },
+        (err) => { this.geoStatus = "Location denied — use City or Manual"; },
+        { timeout: 8000 }
+      );
+    },
+    async generate() {
+      this.loading = true; this.result = null;
+      try {
+        const payload = { ...this.req };
+        // Only send weather inputs relevant to the chosen mode.
+        if (this.weatherMode !== "auto") { payload.latitude = null; payload.longitude = null; }
+        if (this.weatherMode !== "city") { if (this.weatherMode !== "manual") payload.location_name = ""; }
+        if (this.weatherMode !== "manual") { payload.manual_temp_c = null; payload.manual_condition = ""; }
+        if (this.weatherMode === "city") { payload.manual_temp_c = null; payload.manual_condition = ""; }
+        this.result = await WA.post("/api/outfits/generate", payload);
+        if (!this.result.outfits.length) waToast(this.result.note || "No outfits could be built.", "error");
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.loading = false; }
+    },
+  };
+}
+</script>
+{% endblock %}

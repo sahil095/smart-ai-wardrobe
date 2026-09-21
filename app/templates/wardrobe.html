@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Wardrobe{% endblock %}
+
+{% block content %}
+<div x-data="wardrobePage()" x-init="init()">
+  <div class="section-title">My Wardrobe</div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state">
+      <i class="bi bi-person-x"></i>
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <template x-if="hasUser">
+  <div>
+    <div class="input-group mb-2">
+      <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+      <input class="form-control" placeholder="Search name or brand…" x-model="filters.search" @input.debounce.400ms="load()" />
+    </div>
+
+    <div class="filter-row mb-2">
+      <select class="form-select form-select-sm" style="width:auto;" x-model="filters.category" @change="load()">
+        <option value="">All categories</option>
+        <template x-for="c in opts.categories"><option x-text="c"></option></template>
+      </select>
+      <select class="form-select form-select-sm" style="width:auto;" x-model="filters.season" @change="load()">
+        <option value="">Any season</option>
+        <template x-for="s in opts.seasons"><option x-text="s"></option></template>
+      </select>
+      <select class="form-select form-select-sm" style="width:auto;" x-model="filters.laundry_status" @change="load()">
+        <option value="">Any laundry</option>
+        <template x-for="l in opts.laundry_statuses"><option x-text="l"></option></template>
+      </select>
+      <button class="btn btn-sm" :class="filters.favorites_only ? 'btn-warning' : 'btn-outline-secondary'"
+              style="white-space:nowrap;" @click="filters.favorites_only = !filters.favorites_only; load()">
+        <i class="bi bi-star-fill"></i> Favorites
+      </button>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <small class="muted" x-text="items.length + ' items'"></small>
+      <button class="btn btn-sm btn-outline-secondary" @click="resetFilters()" x-show="hasActiveFilters()">Clear filters</button>
+    </div>
+
+    <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
+
+    <template x-if="!loading && items.length === 0">
+      <div class="empty-state">
+        <i class="bi bi-hanger"></i>
+        <p>No items found.</p>
+        <a href="/add" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add your first item</a>
+      </div>
+    </template>
+
+    <div class="item-grid" x-show="!loading">
+      <template x-for="it in items" :key="it.id">
+        <div class="item-card" @click="location.href = '/add?id=' + it.id">
+          <template x-if="it.image_url">
+            <img class="item-thumb" :src="it.image_url" :alt="it.name" />
+          </template>
+          <template x-if="!it.image_url">
+            <div class="item-thumb placeholder"><i class="bi bi-image"></i></div>
+          </template>
+          <span class="laundry-badge" :class="{clean: it.laundry_status === 'Clean'}" x-text="it.laundry_status"></span>
+          <template x-if="it.favorite">
+            <span class="fav-badge"><i class="bi bi-star-fill"></i></span>
+          </template>
+          <div class="item-body">
+            <b x-text="it.name"></b>
+            <small x-text="[it.category, it.subcategory].filter(Boolean).join(' · ')"></small>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function wardrobePage() {
+  return {
+    opts: {}, items: [], loading: false, hasUser: false,
+    filters: { search: "", category: "", season: "", laundry_status: "", favorites_only: false },
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      this.opts = await WA.get("/api/meta/options");
+      const params = new URLSearchParams(location.search);
+      if (params.get("laundry")) this.filters.laundry_status = params.get("laundry");
+      await this.load();
+    },
+    hasActiveFilters() {
+      const f = this.filters;
+      return f.search || f.category || f.season || f.laundry_status || f.favorites_only;
+    },
+    resetFilters() {
+      this.filters = { search: "", category: "", season: "", laundry_status: "", favorites_only: false };
+      this.load();
+    },
+    async load() {
+      const uid = WA.getUserId();
+      this.loading = true;
+      try {
+        const q = new URLSearchParams({ user_id: uid });
+        const f = this.filters;
+        if (f.search) q.set("search", f.search);
+        if (f.category) q.set("category", f.category);
+        if (f.season) q.set("season", f.season);
+        if (f.laundry_status) q.set("laundry_status", f.laundry_status);
+        if (f.favorites_only) q.set("favorites_only", "true");
+        this.items = await WA.get(`/api/wardrobe?${q.toString()}`);
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.loading = false; }
+    },
+  };
+}
+</script>
+{% endblock %}

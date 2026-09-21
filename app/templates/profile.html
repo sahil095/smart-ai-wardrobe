@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Profile{% endblock %}
+
+{% block content %}
+<div x-data="profilePage()" x-init="init()">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="section-title mb-0">Profiles</div>
+    <button class="btn btn-sm btn-primary" @click="newUser()"><i class="bi bi-plus-lg"></i> New</button>
+  </div>
+
+  <!-- Existing users -->
+  <template x-if="users.length">
+    <div class="card-soft">
+      <label class="form-label">Select profile to edit</label>
+      <select class="form-select" x-model="selectedId" @change="loadUser()">
+        <option value="">— New profile —</option>
+        <template x-for="u in users" :key="u.id">
+          <option :value="u.id" x-text="u.name + (u.nickname ? ' (' + u.nickname + ')' : '')"></option>
+        </template>
+      </select>
+    </div>
+  </template>
+
+  <form class="card-soft" @submit.prevent="save()">
+    <div class="section-title" x-text="form.id ? 'Edit profile' : 'Create profile'"></div>
+
+    <div class="row g-2">
+      <div class="col-8">
+        <label class="form-label">Full Name *</label>
+        <input class="form-control" x-model="form.name" required maxlength="120" />
+      </div>
+      <div class="col-4">
+        <label class="form-label">Nickname</label>
+        <input class="form-control" x-model="form.nickname" />
+      </div>
+      <div class="col-4">
+        <label class="form-label">Age</label>
+        <input type="number" class="form-control" x-model.number="form.age" min="0" max="130" />
+      </div>
+      <div class="col-8">
+        <label class="form-label">Gender</label>
+        <select class="form-select" x-model="form.gender">
+          <option value="">—</option>
+          <template x-for="g in opts.genders"><option x-text="g"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Height</label>
+        <input class="form-control" x-model="form.height" placeholder="e.g. 5'10 / 178cm" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Weight</label>
+        <input class="form-control" x-model="form.weight" placeholder="e.g. 72kg" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label">Body Type</label>
+        <select class="form-select" x-model="form.body_type">
+          <option value="">—</option>
+          <template x-for="b in opts.body_types"><option x-text="b"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Skin Tone</label>
+        <select class="form-select" x-model="form.skin_tone">
+          <option value="">—</option>
+          <template x-for="s in opts.skin_tones"><option x-text="s"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Undertone</label>
+        <select class="form-select" x-model="form.undertone">
+          <option value="">—</option>
+          <template x-for="u in opts.undertones"><option x-text="u"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Hair Color</label>
+        <select class="form-select" x-model="form.hair_color">
+          <option value="">—</option>
+          <template x-for="h in opts.hair_colors"><option x-text="h"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Eye Color</label>
+        <select class="form-select" x-model="form.eye_color">
+          <option value="">—</option>
+          <template x-for="e in opts.eye_colors"><option x-text="e"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Default Shoe Size</label>
+        <input class="form-control" x-model="form.default_shoe_size" placeholder="e.g. UK 9" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <label class="form-label">Preferred Fit</label>
+    <div class="chip-group mb-2">
+      <template x-for="f in opts.preferred_fits" :key="f">
+        <span class="chip" :class="{selected: form.preferred_fit === f}" @click="form.preferred_fit = f" x-text="f"></span>
+      </template>
+    </div>
+
+    <label class="form-label">Fashion Style (multiple)</label>
+    <div class="chip-group mb-2">
+      <template x-for="s in opts.fashion_styles" :key="s">
+        <span class="chip" :class="{selected: form.style.includes(s)}" @click="toggleInArray(form.style, s)" x-text="s"></span>
+      </template>
+    </div>
+
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label">Favorite Colors</label>
+        <input class="form-control" :value="form.favorite_colors.join(', ')"
+               @input="form.favorite_colors = splitCsv($event.target.value)"
+               placeholder="navy, white, olive" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Disliked Colors</label>
+        <input class="form-control" :value="form.disliked_colors.join(', ')"
+               @input="form.disliked_colors = splitCsv($event.target.value)"
+               placeholder="neon, orange" />
+      </div>
+    </div>
+
+    <label class="form-label mt-2">Notes</label>
+    <textarea class="form-control" rows="2" x-model="form.notes"></textarea>
+
+    <div class="d-flex gap-2 mt-3">
+      <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving">
+        <span x-text="form.id ? 'Update' : 'Save'"></span>
+      </button>
+      <template x-if="form.id">
+        <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash"></i></button>
+      </template>
+      <button type="button" class="btn btn-outline-secondary" @click="newUser()">Cancel</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function blankUser() {
+  return {
+    id: null, name: "", nickname: "", age: null, gender: "", height: "", weight: "",
+    body_type: "", skin_tone: "", undertone: "", hair_color: "", eye_color: "",
+    preferred_fit: "", style: [], favorite_colors: [], disliked_colors: [],
+    default_shoe_size: "", notes: "",
+  };
+}
+function profilePage() {
+  return {
+    opts: {}, users: [], selectedId: "", form: blankUser(), saving: false,
+    toggleInArray,
+    splitCsv(v) { return v.split(",").map(s => s.trim()).filter(Boolean); },
+    async init() {
+      this.opts = await WA.get("/api/meta/options");
+      await this.loadUsers();
+      const uid = WA.getUserId();
+      if (uid && this.users.find(u => u.id === uid)) {
+        this.selectedId = uid; await this.loadUser();
+      }
+    },
+    async loadUsers() { this.users = await WA.get("/api/users"); },
+    newUser() { this.selectedId = ""; this.form = blankUser(); },
+    async loadUser() {
+      if (!this.selectedId) { this.newUser(); return; }
+      const u = await WA.get(`/api/users/${this.selectedId}`);
+      this.form = Object.assign(blankUser(), u);
+      this.form.style = u.style || [];
+      this.form.favorite_colors = u.favorite_colors || [];
+      this.form.disliked_colors = u.disliked_colors || [];
+    },
+    async save() {
+      this.saving = true;
+      try {
+        const payload = { ...this.form };
+        delete payload.created_at; delete payload.updated_at;
+        let saved;
+        if (this.form.id) {
+          saved = await WA.put(`/api/users/${this.form.id}`, payload);
+        } else {
+          delete payload.id;
+          saved = await WA.post("/api/users", payload);
+          WA.setUserId(saved.id);
+        }
+        waToast("Profile saved", "success");
+        await this.loadUsers();
+        this.selectedId = saved.id; this.form = Object.assign(blankUser(), saved);
+        setTimeout(() => location.reload(), 700);
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.saving = false; }
+    },
+    async remove() {
+      if (!confirm("Delete this profile and all its wardrobe items?")) return;
+      try {
+        await WA.del(`/api/users/${this.form.id}`);
+        if (WA.getUserId() === this.form.id) WA.setUserId(null);
+        waToast("Profile deleted", "success");
+        setTimeout(() => location.reload(), 600);
+      } catch (e) { waToast(e.message, "error"); }
+    },
+  };
+}
+</script>
+{% endblock %}

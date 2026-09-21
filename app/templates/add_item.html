@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Add Item{% endblock %}
+
+{% block content %}
+<div x-data="itemForm()" x-init="init()">
+  <div class="section-title" x-text="form.id ? 'Edit item' : 'Add clothing item'"></div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state">
+      <i class="bi bi-person-x"></i>
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <template x-if="hasUser">
+  <form class="card-soft" @submit.prevent="save()">
+    <!-- Image -->
+    <label class="form-label">Photo</label>
+    <div class="d-flex gap-3 align-items-center mb-3">
+      <div style="width:88px;height:88px;border-radius:14px;overflow:hidden;background:#eef1f5;flex:0 0 auto;display:flex;align-items:center;justify-content:center;">
+        <template x-if="form.image_url">
+          <img :src="form.image_url" style="width:100%;height:100%;object-fit:cover;" />
+        </template>
+        <template x-if="!form.image_url"><i class="bi bi-image" style="font-size:1.8rem;color:#b6bcc7;"></i></template>
+      </div>
+      <div class="flex-fill">
+        <input type="file" accept="image/*" class="form-control" @change="uploadImage($event)" />
+        <small class="muted" x-show="uploading">Uploading…</small>
+      </div>
+    </div>
+
+    <div class="row g-2">
+      <div class="col-12">
+        <label class="form-label">Name *</label>
+        <input class="form-control" x-model="form.name" placeholder="e.g. Blue Nike Hoodie" required />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Brand</label>
+        <input class="form-control" x-model="form.brand" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Category *</label>
+        <select class="form-select" x-model="form.category" @change="form.subcategory=''" required>
+          <option value="">—</option>
+          <template x-for="c in opts.categories"><option x-text="c"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Subcategory</label>
+        <select class="form-select" x-model="form.subcategory">
+          <option value="">—</option>
+          <template x-for="s in (opts.subcategories[form.category] || [])"><option x-text="s"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Size</label>
+        <input class="form-control" x-model="form.size" placeholder="S / 32 / UK9" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Primary Color</label>
+        <input class="form-control" x-model="form.primary_color" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Secondary Color</label>
+        <input class="form-control" x-model="form.secondary_color" />
+      </div>
+      <div class="col-6">
+        <label class="form-label">Pattern</label>
+        <select class="form-select" x-model="form.pattern">
+          <option value="">—</option>
+          <template x-for="p in opts.patterns"><option x-text="p"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Material</label>
+        <select class="form-select" x-model="form.material">
+          <option value="">—</option>
+          <template x-for="m in opts.materials"><option x-text="m"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Fit</label>
+        <select class="form-select" x-model="form.fit">
+          <option value="">—</option>
+          <template x-for="f in opts.preferred_fits"><option x-text="f"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Sleeve Type</label>
+        <select class="form-select" x-model="form.sleeve_type">
+          <option value="">—</option>
+          <template x-for="s in opts.sleeve_types"><option x-text="s"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Neck Type</label>
+        <select class="form-select" x-model="form.neck_type">
+          <option value="">—</option>
+          <template x-for="n in opts.neck_types"><option x-text="n"></option></template>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <label class="form-label">Season (multiple)</label>
+    <div class="chip-group mb-2">
+      <template x-for="s in opts.seasons" :key="s">
+        <span class="chip" :class="{selected: form.season.includes(s)}" @click="toggleInArray(form.season, s)" x-text="s"></span>
+      </template>
+    </div>
+
+    <label class="form-label">Weather Suitability</label>
+    <div class="chip-group mb-2">
+      <template x-for="w in opts.weather_suitability" :key="w">
+        <span class="chip" :class="{selected: form.weather.includes(w)}" @click="toggleInArray(form.weather, w)" x-text="w"></span>
+      </template>
+    </div>
+
+    <label class="form-label">Occasion Suitability</label>
+    <div class="chip-group mb-2">
+      <template x-for="o in opts.occasions" :key="o">
+        <span class="chip" :class="{selected: form.occasion.includes(o)}" @click="toggleInArray(form.occasion, o)" x-text="o"></span>
+      </template>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label">Condition</label>
+        <select class="form-select" x-model="form.condition">
+          <option value="">—</option>
+          <template x-for="c in opts.conditions"><option x-text="c"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Wear Frequency</label>
+        <select class="form-select" x-model="form.wear_frequency">
+          <option value="">—</option>
+          <template x-for="w in opts.wear_frequencies"><option x-text="w"></option></template>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">Laundry Status</label>
+        <select class="form-select" x-model="form.laundry_status">
+          <template x-for="l in opts.laundry_statuses"><option x-text="l"></option></template>
+        </select>
+      </div>
+      <div class="col-6 d-flex align-items-end">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" x-model="form.favorite" id="favSwitch" />
+          <label class="form-check-label" for="favSwitch">Favorite</label>
+        </div>
+      </div>
+    </div>
+
+    <label class="form-label mt-2">Notes</label>
+    <textarea class="form-control" rows="2" x-model="form.notes"></textarea>
+
+    <div class="d-flex gap-2 mt-3">
+      <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving" x-text="form.id ? 'Update' : 'Save item'"></button>
+      <template x-if="form.id">
+        <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash"></i></button>
+      </template>
+    </div>
+  </form>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function blankItem(userId) {
+  return {
+    id: null, user_id: userId, name: "", brand: "", category: "", subcategory: "",
+    primary_color: "", secondary_color: "", pattern: "", material: "", fit: "",
+    size: "", season: [], weather: [], occasion: [], sleeve_type: "", neck_type: "",
+    condition: "", wear_frequency: "", favorite: false, laundry_status: "Clean",
+    image_url: "", notes: "",
+  };
+}
+function itemForm() {
+  return {
+    opts: { subcategories: {} }, form: blankItem(null), hasUser: false,
+    saving: false, uploading: false, toggleInArray,
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      this.opts = await WA.get("/api/meta/options");
+      this.form = blankItem(uid);
+      const params = new URLSearchParams(location.search);
+      const editId = params.get("id");
+      if (editId) {
+        const it = await WA.get(`/api/wardrobe/${editId}`);
+        this.form = Object.assign(blankItem(uid), it);
+        ["season", "weather", "occasion"].forEach(k => this.form[k] = it[k] || []);
+      }
+    },
+    async uploadImage(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      this.uploading = true;
+      try {
+        const fd = new FormData(); fd.append("file", file);
+        const res = await WA.upload("/api/wardrobe/upload-image", fd);
+        this.form.image_url = res.image_url;
+        waToast("Image uploaded", "success");
+      } catch (err) { waToast(err.message, "error"); }
+      finally { this.uploading = false; }
+    },
+    async save() {
+      this.saving = true;
+      try {
+        const payload = { ...this.form };
+        delete payload.created_at; delete payload.updated_at;
+        if (this.form.id) {
+          await WA.put(`/api/wardrobe/${this.form.id}`, payload);
+          waToast("Item updated", "success");
+        } else {
+          delete payload.id;
+          await WA.post("/api/wardrobe", payload);
+          waToast("Item added", "success");
+        }
+        setTimeout(() => location.href = "/wardrobe", 700);
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.saving = false; }
+    },
+    async remove() {
+      if (!confirm("Delete this item?")) return;
+      try {
+        await WA.del(`/api/wardrobe/${this.form.id}`);
+        waToast("Item deleted", "success");
+        setTimeout(() => location.href = "/wardrobe", 600);
+      } catch (e) { waToast(e.message, "error"); }
+    },
+  };
+}
+</script>
+{% endblock %}

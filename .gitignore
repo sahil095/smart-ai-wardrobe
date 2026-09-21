@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Env & secrets
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Local uploads (Cloudinary fallback)
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
