@@ -32,6 +32,7 @@ class OutfitPiece(BaseModel):
     subcategory: str | None = None
     primary_color: str | None = None
     image_url: str | None = None
+    display_image_url: str | None = None
 
 
 class Outfit(BaseModel):

@@ -1,7 +1,7 @@
 """Pydantic schemas for wardrobe items."""
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WardrobeItemBase(BaseModel):
@@ -25,7 +25,23 @@ class WardrobeItemBase(BaseModel):
     favorite: bool = False
     laundry_status: str = "Clean"
     image_url: str | None = None
+    display_image_url: str | None = None
+    image_public_id: str | None = None
     notes: str | None = None
+    # Flexible, category-dependent attributes (Phase 1)
+    attributes: dict = Field(default_factory=dict)
+
+    @field_validator("season", "weather", "occasion", mode="before")
+    @classmethod
+    def _none_to_list(cls, v):
+        # DB rows may hold NULL for JSON list columns.
+        return v or []
+
+    @field_validator("attributes", mode="before")
+    @classmethod
+    def _none_to_dict(cls, v):
+        # Existing rows have NULL attributes after the migration adds the column.
+        return v or {}
 
 
 class WardrobeItemCreate(WardrobeItemBase):
@@ -53,7 +69,10 @@ class WardrobeItemUpdate(BaseModel):
     favorite: bool | None = None
     laundry_status: str | None = None
     image_url: str | None = None
+    display_image_url: str | None = None
+    image_public_id: str | None = None
     notes: str | None = None
+    attributes: dict | None = None
 
 
 class WardrobeItemOut(WardrobeItemBase):

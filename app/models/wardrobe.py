@@ -49,7 +49,12 @@ class WardrobeItem(Base):
         String(40), default="Clean", nullable=False, index=True
     )
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Standardized ("retail PDP") variant + Cloudinary public_id for transforms
+    display_image_url: Mapped[str | None] = mapped_column(String(700), nullable=True)
+    image_public_id: Mapped[str | None] = mapped_column(String(300), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Category-dependent attributes (Phase 1), e.g. {"sole_type": "Rubber"}
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

@@ -64,6 +64,64 @@ def _build_user_prompt(context: dict, candidates: list[dict], count: int) -> str
     )
 
 
+ATTRIBUTE_SYSTEM_PROMPT = (
+    "You are a fashion taxonomy expert. Given a clothing category and "
+    "subcategory, produce a concise list of practical attributes a person would "
+    "use to describe and filter that item. Return JSON only."
+)
+
+
+def generate_attribute_schema(category: str, subcategory: str | None) -> list[dict]:
+    """Ask Groq for 4-8 filterable attributes for a category/subcategory.
+
+    Returns a list of field defs: {key, label, type:'select'|'text', options?}.
+    Raises on API/parse errors so the caller can fall back to builtins.
+    """
+    client = _get_client()
+    target = f"{subcategory} ({category})" if subcategory else category
+    user_prompt = (
+        f"Clothing type: {target}.\n"
+        "List 4-8 attributes useful for filtering a personal wardrobe. Prefer "
+        "'select' fields with 3-6 concrete options; use 'text' only when options "
+        "are open-ended. Use short snake_case keys and human labels. Avoid "
+        "duplicating these already-captured fields: name, brand, color, pattern, "
+        "material, fit, size, season, weather, occasion, sleeve, neck.\n"
+        "Respond as JSON of this exact shape:\n"
+        '{ "attributes": [ {"key": "sole_type", "label": "Sole Type", '
+        '"type": "select", "options": ["Rubber", "EVA", "Leather"]} ] }'
+    )
+    completion = client.chat.completions.create(
+        model=settings.groq_model,
+        messages=[
+            {"role": "system", "content": ATTRIBUTE_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
+    )
+    content = completion.choices[0].message.content or "{}"
+    data = json.loads(content)
+    attrs = data.get("attributes", [])
+    if not isinstance(attrs, list):
+        return []
+    # Sanitize each field def.
+    cleaned: list[dict] = []
+    for a in attrs:
+        if not isinstance(a, dict) or not a.get("key") or not a.get("label"):
+            continue
+        ftype = a.get("type") if a.get("type") in ("select", "text") else "text"
+        field = {"key": str(a["key"]), "label": str(a["label"]), "type": ftype}
+        if ftype == "select":
+            opts = a.get("options") or []
+            opts = [str(o) for o in opts if isinstance(o, (str, int, float))]
+            if not opts:
+                field["type"] = "text"
+            else:
+                field["options"] = opts[:8]
+        cleaned.append(field)
+    return cleaned[:8]
+
+
 def generate_outfits(context: dict, candidates: list[dict], count: int) -> list[dict]:
     """Call Groq and return the raw list of outfit dicts (unvalidated)."""
     client = _get_client()

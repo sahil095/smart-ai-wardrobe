@@ -3,11 +3,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import meta, outfits, users, wardrobe, weather
+from app.api import attributes, meta, outfits, users, wardrobe, weather
 from app.config import settings
 from app.database import init_db
 
@@ -37,6 +37,26 @@ app.include_router(wardrobe.router)
 app.include_router(weather.router)
 app.include_router(outfits.router)
 app.include_router(meta.router)
+app.include_router(attributes.router)
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """Serve the service worker from the root so its scope covers the whole app."""
+    return FileResponse(
+        STATIC_DIR / "js" / "sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest():
+    """Serve the PWA manifest with the correct MIME type."""
+    return FileResponse(
+        STATIC_DIR / "manifest.webmanifest",
+        media_type="application/manifest+json",
+    )
 
 
 @app.get("/health", tags=["meta"])

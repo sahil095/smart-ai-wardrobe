@@ -57,6 +57,7 @@ def _to_piece(item: WardrobeItem) -> OutfitPiece:
         subcategory=item.subcategory,
         primary_color=item.primary_color,
         image_url=item.image_url,
+        display_image_url=item.display_image_url,
     )
 
 

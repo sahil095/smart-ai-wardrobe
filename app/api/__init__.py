@@ -1,3 +1,3 @@
-from app.api import meta, outfits, users, wardrobe, weather
+from app.api import attributes, meta, outfits, users, wardrobe, weather
 
-__all__ = ["users", "wardrobe", "weather", "outfits", "meta"]
+__all__ = ["users", "wardrobe", "weather", "outfits", "meta", "attributes"]

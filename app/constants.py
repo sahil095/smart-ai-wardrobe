@@ -113,6 +113,73 @@ COMFORT_STYLE = ["Comfort", "Balanced", "Style"]
 # Only these laundry statuses are eligible for AI recommendations.
 CLEAN_STATUS = "Clean"
 
+# ---- Phase 1: category-dependent fields & attributes ----
+
+# Which existing base metadata fields are relevant per category. A field is
+# shown when no category is selected yet, or the category is in its list.
+CATEGORY_FIELD_VISIBILITY = {
+    "sleeve_type": ["Upper", "Outerwear", "Ethnic", "Activewear", "Sleepwear"],
+    "neck_type": ["Upper", "Ethnic", "Activewear", "Sleepwear"],
+}
+
+# Builtin fallback attribute schemas per category (used when the LLM is
+# unavailable or returns nothing). Field type is 'select' (with options) or
+# 'text'. These are intentionally short and practical for filtering.
+BUILTIN_ATTRIBUTE_SCHEMAS = {
+    "Upper": [
+        {"key": "closure", "label": "Closure", "type": "select",
+         "options": ["Pullover", "Button", "Zip", "Half-Zip"]},
+        {"key": "hooded", "label": "Hooded", "type": "select",
+         "options": ["Yes", "No"]},
+    ],
+    "Lower": [
+        {"key": "rise", "label": "Rise", "type": "select",
+         "options": ["Low", "Mid", "High"]},
+        {"key": "leg_style", "label": "Leg Style", "type": "select",
+         "options": ["Skinny", "Slim", "Straight", "Tapered", "Wide"]},
+        {"key": "length", "label": "Length", "type": "select",
+         "options": ["Full", "Cropped", "Shorts"]},
+    ],
+    "Shoes": [
+        {"key": "closure", "label": "Closure", "type": "select",
+         "options": ["Laces", "Slip-on", "Velcro", "Buckle", "Zip"]},
+        {"key": "sole_type", "label": "Sole", "type": "select",
+         "options": ["Rubber", "EVA", "Leather", "Gum"]},
+        {"key": "shoe_height", "label": "Height", "type": "select",
+         "options": ["Low-top", "Mid-top", "High-top"]},
+    ],
+    "Outerwear": [
+        {"key": "closure", "label": "Closure", "type": "select",
+         "options": ["Zip", "Button", "Open"]},
+        {"key": "hooded", "label": "Hooded", "type": "select",
+         "options": ["Yes", "No"]},
+        {"key": "insulation", "label": "Insulation", "type": "select",
+         "options": ["None", "Light", "Heavy"]},
+        {"key": "water_resistant", "label": "Water Resistant", "type": "select",
+         "options": ["Yes", "No"]},
+    ],
+    "Accessories": [
+        {"key": "metal_tone", "label": "Metal Tone", "type": "select",
+         "options": ["Gold", "Silver", "Rose Gold", "Black", "None"]},
+        {"key": "adjustable", "label": "Adjustable", "type": "select",
+         "options": ["Yes", "No"]},
+    ],
+    "Activewear": [
+        {"key": "fit_type", "label": "Fit Type", "type": "select",
+         "options": ["Compression", "Regular", "Loose"]},
+        {"key": "moisture_wicking", "label": "Moisture Wicking", "type": "select",
+         "options": ["Yes", "No"]},
+    ],
+    "Sleepwear": [
+        {"key": "piece", "label": "Piece", "type": "select",
+         "options": ["Top", "Bottom", "Set"]},
+    ],
+    "Ethnic": [
+        {"key": "work_type", "label": "Work / Detailing", "type": "select",
+         "options": ["Plain", "Embroidered", "Printed", "Embellished"]},
+    ],
+}
+
 
 def all_options() -> dict:
     """Return every option list as a single JSON-serialisable dict for the UI."""
@@ -140,4 +207,5 @@ def all_options() -> dict:
         "time_of_day": TIME_OF_DAY,
         "dress_codes": DRESS_CODES,
         "comfort_style": COMFORT_STYLE,
+        "category_field_visibility": CATEGORY_FIELD_VISIBILITY,
     }

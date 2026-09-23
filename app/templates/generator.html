@@ -128,10 +128,11 @@
         <div class="pieces">
           <template x-for="slot in slots(o)" :key="slot.key">
             <div class="piece">
-              <template x-if="slot.piece && slot.piece.image_url">
-                <img :src="slot.piece.image_url" :alt="slot.piece.name" />
+              <template x-if="slot.piece && (slot.piece.display_image_url || slot.piece.image_url)">
+                <img :src="slot.piece.display_image_url || slot.piece.image_url" :alt="slot.piece.name"
+                     @error="if (slot.piece.image_url && $event.target.src !== slot.piece.image_url) $event.target.src = slot.piece.image_url" />
               </template>
-              <template x-if="slot.piece && !slot.piece.image_url">
+              <template x-if="slot.piece && !(slot.piece.display_image_url || slot.piece.image_url)">
                 <div class="ph"><i class="bi bi-image"></i></div>
               </template>
               <template x-if="!slot.piece"><div class="ph"><i class="bi bi-dash"></i></div></template>

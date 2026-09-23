@@ -25,12 +25,19 @@ class Settings(BaseSettings):
     # Outfit engine
     outfit_count: int = 2
 
+    # Image standardization (Cloudinary on-the-fly transformations)
+    standardize_images: bool = True
+    image_bg_color: str = "F5F6F8"  # hex without '#'
+    image_aspect: str = "1:1"  # e.g. "1:1" or "3:4"
+
     @field_validator(
         "groq_api_key",
         "groq_model",
         "cloudinary_cloud_name",
         "cloudinary_api_key",
         "cloudinary_api_secret",
+        "image_bg_color",
+        "image_aspect",
         mode="before",
     )
     @classmethod

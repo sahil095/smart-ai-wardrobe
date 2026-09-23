@@ -1,4 +1,6 @@
 """Wardrobe item CRUD + image upload API."""
+import json
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,6 +22,7 @@ def list_items(
     laundry_status: str | None = None,
     favorites_only: bool = False,
     search: str | None = None,
+    attrs: str | None = None,
     db: Session = Depends(get_db),
 ):
     stmt = select(WardrobeItem).where(WardrobeItem.user_id == user_id)
@@ -47,6 +50,24 @@ def list_items(
     # Season is a JSON list; filter in Python so it works on SQLite and MySQL.
     if season:
         items = [i for i in items if season in (i.season or [])]
+
+    # Attribute facets: `attrs` is a JSON object of {key: value}; match all.
+    if attrs:
+        try:
+            wanted = json.loads(attrs)
+        except (ValueError, TypeError):
+            wanted = {}
+        if isinstance(wanted, dict):
+            wanted = {k: v for k, v in wanted.items() if v not in (None, "", [])}
+            if wanted:
+                items = [
+                    i
+                    for i in items
+                    if all(
+                        str((i.attributes or {}).get(k, "")) == str(v)
+                        for k, v in wanted.items()
+                    )
+                ]
     return items
 
 
@@ -95,9 +116,16 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
 @router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
-    """Upload an image (Cloudinary if configured, else local) and return URL."""
+    """Upload an image and return the original + standardized display URLs.
+
+    Cloudinary uploads also return a background-removed, padded ``display_image_url``
+    (a "retail PDP" look). Local fallback returns the same URL for both.
+    """
     try:
-        url = await image_service.save_image(file)
+        result = await image_service.save_image(file)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"image_url": url}
+    except image_service.ImageUploadError as exc:
+        # Transient upstream/network failure reaching Cloudinary.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return result

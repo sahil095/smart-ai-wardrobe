@@ -3,7 +3,7 @@
 Uses SQLite by default for zero-config local development, but the models are
 written to be MySQL-compatible (see DATABASE_URL in .env).
 """
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
@@ -52,8 +52,37 @@ def get_db():
         db.close()
 
 
+# New nullable columns added after the initial release. `create_all` never
+# ALTERs existing tables, so ensure_schema() adds any missing ones on both the
+# hosted Postgres DB and local SQLite without dropping data. (Alembic is the
+# longer-term answer as the schema keeps evolving.)
+_ADDED_COLUMNS = {
+    "wardrobe_items": [
+        ("display_image_url", "VARCHAR(700)"),
+        ("image_public_id", "VARCHAR(300)"),
+        ("attributes", "JSON"),
+    ],
+}
+
+
+def ensure_schema() -> None:
+    """Idempotently add missing nullable columns to pre-existing tables."""
+    insp = inspect(engine)
+    for table, columns in _ADDED_COLUMNS.items():
+        if not insp.has_table(table):
+            continue  # fresh DB: create_all already built it with all columns
+        existing = {c["name"] for c in insp.get_columns(table)}
+        missing = [(name, ddl) for name, ddl in columns if name not in existing]
+        if not missing:
+            continue
+        with engine.begin() as conn:
+            for name, ddl in missing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+
 def init_db() -> None:
-    """Create all tables. Imports models so they register on the metadata."""
+    """Create all tables and apply lightweight column migrations."""
     from app import models  # noqa: F401  (ensures models are imported)
 
     Base.metadata.create_all(bind=engine)
+    ensure_schema()

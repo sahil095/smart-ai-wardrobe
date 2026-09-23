@@ -32,3 +32,10 @@ services:
       # Outfits per generation
       - key: OUTFIT_COUNT
         value: "2"
+      # Image standardization (background removal + constant-background look)
+      - key: STANDARDIZE_IMAGES
+        value: "true"
+      - key: IMAGE_BG_COLOR
+        value: "F5F6F8"
+      - key: IMAGE_ASPECT
+        value: "1:1"

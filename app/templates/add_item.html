@@ -19,14 +19,16 @@
     <label class="form-label">Photo</label>
     <div class="d-flex gap-3 align-items-center mb-3">
       <div style="width:88px;height:88px;border-radius:14px;overflow:hidden;background:#eef1f5;flex:0 0 auto;display:flex;align-items:center;justify-content:center;">
-        <template x-if="form.image_url">
-          <img :src="form.image_url" style="width:100%;height:100%;object-fit:cover;" />
+        <template x-if="previewUrl || form.display_image_url || form.image_url">
+          <img :src="previewUrl || form.display_image_url || form.image_url" style="width:100%;height:100%;object-fit:cover;"
+               @error="if (form.image_url && $event.target.src !== form.image_url) $event.target.src = form.image_url" />
         </template>
-        <template x-if="!form.image_url"><i class="bi bi-image" style="font-size:1.8rem;color:#b6bcc7;"></i></template>
+        <template x-if="!(previewUrl || form.display_image_url || form.image_url)"><i class="bi bi-image" style="font-size:1.8rem;color:#b6bcc7;"></i></template>
       </div>
       <div class="flex-fill">
-        <input type="file" accept="image/*" class="form-control" @change="uploadImage($event)" />
-        <small class="muted" x-show="uploading">Uploading…</small>
+        <input type="file" accept="image/*" class="form-control" @change="pickImage($event)" />
+        <small class="muted" x-show="pendingFile && !saving">Photo selected — uploaded when you save.</small>
+        <small class="muted" x-show="saving && pendingFile">Uploading photo…</small>
       </div>
     </div>
 
@@ -41,14 +43,14 @@
       </div>
       <div class="col-6">
         <label class="form-label">Category *</label>
-        <select class="form-select" x-model="form.category" @change="form.subcategory=''" required>
+        <select class="form-select" x-model="form.category" @change="form.subcategory=''; loadAttributeSchema()" required>
           <option value="">—</option>
           <template x-for="c in opts.categories"><option x-text="c"></option></template>
         </select>
       </div>
       <div class="col-6">
         <label class="form-label">Subcategory</label>
-        <select class="form-select" x-model="form.subcategory">
+        <select class="form-select" x-model="form.subcategory" @change="loadAttributeSchema()">
           <option value="">—</option>
           <template x-for="s in (opts.subcategories[form.category] || [])"><option x-text="s"></option></template>
         </select>
@@ -86,14 +88,14 @@
           <template x-for="f in opts.preferred_fits"><option x-text="f"></option></template>
         </select>
       </div>
-      <div class="col-6">
+      <div class="col-6" x-show="showField('sleeve_type')">
         <label class="form-label">Sleeve Type</label>
         <select class="form-select" x-model="form.sleeve_type">
           <option value="">—</option>
           <template x-for="s in opts.sleeve_types"><option x-text="s"></option></template>
         </select>
       </div>
-      <div class="col-6">
+      <div class="col-6" x-show="showField('neck_type')">
         <label class="form-label">Neck Type</label>
         <select class="form-select" x-model="form.neck_type">
           <option value="">—</option>
@@ -101,6 +103,33 @@
         </select>
       </div>
     </div>
+
+    <!-- Category-dependent attributes (AI-generated / builtin) -->
+    <template x-if="attrSchema.length">
+      <div>
+        <div class="divider"></div>
+        <label class="form-label d-flex align-items-center gap-2">
+          <i class="bi bi-stars"></i> <span x-text="(form.subcategory || form.category) + ' details'"></span>
+          <span class="spinner-border spinner-border-sm" x-show="attrLoading"></span>
+        </label>
+        <div class="row g-2">
+          <template x-for="field in attrSchema" :key="field.key">
+            <div class="col-6">
+              <label class="form-label" x-text="field.label"></label>
+              <template x-if="field.type === 'select'">
+                <select class="form-select" x-model="form.attributes[field.key]">
+                  <option value="">—</option>
+                  <template x-for="o in (field.options || [])" :key="o"><option x-text="o"></option></template>
+                </select>
+              </template>
+              <template x-if="field.type !== 'select'">
+                <input class="form-control" x-model="form.attributes[field.key]" />
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
 
     <div class="divider"></div>
 
@@ -161,8 +190,9 @@
 
     <div class="d-flex gap-2 mt-3">
       <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving" x-text="form.id ? 'Update' : 'Save item'"></button>
+      <button type="button" class="btn btn-outline-secondary" @click="cancel()" :disabled="saving">Cancel</button>
       <template x-if="form.id">
-        <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-outline-danger" @click="remove()" :disabled="saving"><i class="bi bi-trash"></i></button>
       </template>
     </div>
   </form>
@@ -178,13 +208,36 @@ function blankItem(userId) {
     primary_color: "", secondary_color: "", pattern: "", material: "", fit: "",
     size: "", season: [], weather: [], occasion: [], sleeve_type: "", neck_type: "",
     condition: "", wear_frequency: "", favorite: false, laundry_status: "Clean",
-    image_url: "", notes: "",
+    image_url: "", display_image_url: "", image_public_id: "", notes: "",
+    attributes: {},
   };
 }
 function itemForm() {
   return {
     opts: { subcategories: {} }, form: blankItem(null), hasUser: false,
-    saving: false, uploading: false, toggleInArray,
+    saving: false, toggleInArray,
+    attrSchema: [], attrLoading: false,
+    pendingFile: null, previewUrl: "",
+    showField(field) {
+      const map = this.opts.category_field_visibility || {};
+      if (!(field in map)) return true;
+      return !this.form.category || map[field].includes(this.form.category);
+    },
+    async loadAttributeSchema() {
+      if (!this.form.category) { this.attrSchema = []; return; }
+      this.attrLoading = true;
+      try {
+        const q = new URLSearchParams({ category: this.form.category });
+        if (this.form.subcategory) q.set("subcategory", this.form.subcategory);
+        const res = await WA.get(`/api/attributes/schema?${q.toString()}`);
+        this.attrSchema = res.fields || [];
+        // Ensure keys exist on the attributes object for binding.
+        this.attrSchema.forEach(f => {
+          if (!(f.key in this.form.attributes)) this.form.attributes[f.key] = "";
+        });
+      } catch (e) { this.attrSchema = []; }
+      finally { this.attrLoading = false; }
+    },
     async init() {
       const uid = WA.getUserId();
       this.hasUser = !!uid;
@@ -197,23 +250,31 @@ function itemForm() {
         const it = await WA.get(`/api/wardrobe/${editId}`);
         this.form = Object.assign(blankItem(uid), it);
         ["season", "weather", "occasion"].forEach(k => this.form[k] = it[k] || []);
+        this.form.attributes = it.attributes || {};
+        await this.loadAttributeSchema();
       }
     },
-    async uploadImage(e) {
+    pickImage(e) {
       const file = e.target.files[0];
-      if (!file) return;
-      this.uploading = true;
-      try {
-        const fd = new FormData(); fd.append("file", file);
-        const res = await WA.upload("/api/wardrobe/upload-image", fd);
-        this.form.image_url = res.image_url;
-        waToast("Image uploaded", "success");
-      } catch (err) { waToast(err.message, "error"); }
-      finally { this.uploading = false; }
+      if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
+      if (!file) { this.pendingFile = null; this.previewUrl = ""; return; }
+      this.pendingFile = file;
+      this.previewUrl = URL.createObjectURL(file);
+    },
+    cancel() {
+      if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
+      location.href = "/wardrobe";
     },
     async save() {
       this.saving = true;
       try {
+        if (this.pendingFile) {
+          const fd = new FormData(); fd.append("file", this.pendingFile);
+          const res = await WA.upload("/api/wardrobe/upload-image", fd);
+          this.form.image_url = res.image_url;
+          this.form.display_image_url = res.display_image_url || res.image_url;
+          this.form.image_public_id = res.public_id || "";
+        }
         const payload = { ...this.form };
         delete payload.created_at; delete payload.updated_at;
         if (this.form.id) {
@@ -224,6 +285,7 @@ function itemForm() {
           await WA.post("/api/wardrobe", payload);
           waToast("Item added", "success");
         }
+        if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
         setTimeout(() => location.href = "/wardrobe", 700);
       } catch (e) { waToast(e.message, "error"); }
       finally { this.saving = false; }

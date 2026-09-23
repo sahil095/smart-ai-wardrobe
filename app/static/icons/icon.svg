@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Wardrobe AI">
+  <rect width="512" height="512" rx="104" fill="#0d1b2a"/>
+  <g fill="none" stroke="#ffd166" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- hook -->
+    <path d="M256 196 L256 150"/>
+    <circle cx="233" cy="146" r="20"/>
+    <!-- hanger shoulders + bar -->
+    <path d="M256 196 L146 304 Q256 328 366 304 L256 196 Z"/>
+  </g>
+</svg>

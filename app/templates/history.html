@@ -43,8 +43,8 @@
               </div>
               <div class="d-flex gap-1 flex-wrap">
                 <template x-for="p in pieces(o)" :key="p.item_id">
-                  <template x-if="p.image_url">
-                    <img :src="p.image_url" :title="p.name" style="width:38px;height:38px;object-fit:cover;border-radius:8px;" />
+                  <template x-if="p.display_image_url || p.image_url">
+                    <img :src="p.display_image_url || p.image_url" :title="p.name" style="width:38px;height:38px;object-fit:cover;border-radius:8px;" />
                   </template>
                 </template>
               </div>

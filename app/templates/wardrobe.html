@@ -21,7 +21,7 @@
     </div>
 
     <div class="filter-row mb-2">
-      <select class="form-select form-select-sm" style="width:auto;" x-model="filters.category" @change="load()">
+      <select class="form-select form-select-sm" style="width:auto;" x-model="filters.category" @change="onCategoryChange()">
         <option value="">All categories</option>
         <template x-for="c in opts.categories"><option x-text="c"></option></template>
       </select>
@@ -37,6 +37,18 @@
               style="white-space:nowrap;" @click="filters.favorites_only = !filters.favorites_only; load()">
         <i class="bi bi-star-fill"></i> Favorites
       </button>
+    </div>
+
+    <!-- Category-dependent attribute facets -->
+    <div class="filter-row mb-2" x-show="attrSchema.length">
+      <template x-for="field in attrSchema" :key="field.key">
+        <template x-if="field.type === 'select'">
+          <select class="form-select form-select-sm" style="width:auto;" x-model="attrFilters[field.key]" @change="load()">
+            <option value="" x-text="'Any ' + field.label"></option>
+            <template x-for="o in (field.options || [])" :key="o"><option x-text="o"></option></template>
+          </select>
+        </template>
+      </template>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -57,10 +69,11 @@
     <div class="item-grid" x-show="!loading">
       <template x-for="it in items" :key="it.id">
         <div class="item-card" @click="location.href = '/add?id=' + it.id">
-          <template x-if="it.image_url">
-            <img class="item-thumb" :src="it.image_url" :alt="it.name" />
+          <template x-if="it.display_image_url || it.image_url">
+            <img class="item-thumb" :src="it.display_image_url || it.image_url" :alt="it.name"
+                 @error="if (it.image_url && $event.target.src !== it.image_url) $event.target.src = it.image_url" />
           </template>
-          <template x-if="!it.image_url">
+          <template x-if="!(it.display_image_url || it.image_url)">
             <div class="item-thumb placeholder"><i class="bi bi-image"></i></div>
           </template>
           <span class="laundry-badge" :class="{clean: it.laundry_status === 'Clean'}" x-text="it.laundry_status"></span>
@@ -85,6 +98,7 @@ function wardrobePage() {
   return {
     opts: {}, items: [], loading: false, hasUser: false,
     filters: { search: "", category: "", season: "", laundry_status: "", favorites_only: false },
+    attrSchema: [], attrFilters: {},
     async init() {
       const uid = WA.getUserId();
       this.hasUser = !!uid;
@@ -96,10 +110,24 @@ function wardrobePage() {
     },
     hasActiveFilters() {
       const f = this.filters;
-      return f.search || f.category || f.season || f.laundry_status || f.favorites_only;
+      return f.search || f.category || f.season || f.laundry_status || f.favorites_only
+        || Object.values(this.attrFilters).some(Boolean);
     },
     resetFilters() {
       this.filters = { search: "", category: "", season: "", laundry_status: "", favorites_only: false };
+      this.attrSchema = []; this.attrFilters = {};
+      this.load();
+    },
+    async onCategoryChange() {
+      // Reset facet filters and load the schema for the chosen category.
+      this.attrFilters = {};
+      this.attrSchema = [];
+      if (this.filters.category) {
+        try {
+          const res = await WA.get(`/api/attributes/schema?category=${encodeURIComponent(this.filters.category)}`);
+          this.attrSchema = (res.fields || []).filter(f => f.type === "select");
+        } catch (e) { this.attrSchema = []; }
+      }
       this.load();
     },
     async load() {
@@ -113,6 +141,10 @@ function wardrobePage() {
         if (f.season) q.set("season", f.season);
         if (f.laundry_status) q.set("laundry_status", f.laundry_status);
         if (f.favorites_only) q.set("favorites_only", "true");
+        const activeAttrs = Object.fromEntries(
+          Object.entries(this.attrFilters).filter(([, v]) => v)
+        );
+        if (Object.keys(activeAttrs).length) q.set("attrs", JSON.stringify(activeAttrs));
         this.items = await WA.get(`/api/wardrobe?${q.toString()}`);
       } catch (e) { waToast(e.message, "error"); }
       finally { this.loading = false; }
