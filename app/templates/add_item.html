@@ -291,7 +291,12 @@ function itemForm() {
       finally { this.saving = false; }
     },
     async remove() {
-      if (!confirm("Delete this item?")) return;
+      const ok = await waConfirm({
+        title: "Delete listing?",
+        message: "This will delete the listing. This cannot be undone.",
+        confirmLabel: "Delete",
+      });
+      if (!ok) return;
       try {
         await WA.del(`/api/wardrobe/${this.form.id}`);
         waToast("Item deleted", "success");

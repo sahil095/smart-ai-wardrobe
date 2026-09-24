@@ -199,7 +199,12 @@ function profilePage() {
       finally { this.saving = false; }
     },
     async remove() {
-      if (!confirm("Delete this profile and all its wardrobe items?")) return;
+      const ok = await waConfirm({
+        title: "Delete profile?",
+        message: "This will delete this profile and all of its wardrobe items. This cannot be undone.",
+        confirmLabel: "Delete profile",
+      });
+      if (!ok) return;
       try {
         await WA.del(`/api/users/${this.form.id}`);
         if (WA.getUserId() === this.form.id) WA.setUserId(null);

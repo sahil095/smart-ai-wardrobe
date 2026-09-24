@@ -80,6 +80,18 @@
           <template x-if="it.favorite">
             <span class="fav-badge"><i class="bi bi-star-fill"></i></span>
           </template>
+          <div class="item-actions">
+            <button type="button" class="item-action laundry"
+                    :class="{'is-laundry': it.laundry_status === 'Laundry'}"
+                    :title="it.laundry_status === 'Laundry' ? 'Mark clean' : 'Send to laundry'"
+                    @click.stop="toggleLaundry(it)">
+              <i class="bi bi-basket"></i>
+            </button>
+            <button type="button" class="item-action delete" title="Delete listing"
+                    @click.stop="removeItem(it)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
           <div class="item-body">
             <b x-text="it.name"></b>
             <small x-text="[it.category, it.subcategory].filter(Boolean).join(' · ')"></small>
@@ -148,6 +160,27 @@ function wardrobePage() {
         this.items = await WA.get(`/api/wardrobe?${q.toString()}`);
       } catch (e) { waToast(e.message, "error"); }
       finally { this.loading = false; }
+    },
+    async toggleLaundry(it) {
+      const next = it.laundry_status === "Laundry" ? "Clean" : "Laundry";
+      try {
+        const updated = await WA.put(`/api/wardrobe/${it.id}`, { laundry_status: next });
+        Object.assign(it, updated);
+        waToast(next === "Laundry" ? "Sent to laundry" : "Marked clean", "success");
+      } catch (e) { waToast(e.message, "error"); }
+    },
+    async removeItem(it) {
+      const ok = await waConfirm({
+        title: "Delete listing?",
+        message: "This will delete the listing. This cannot be undone.",
+        confirmLabel: "Delete",
+      });
+      if (!ok) return;
+      try {
+        await WA.del(`/api/wardrobe/${it.id}`);
+        this.items = this.items.filter(i => i.id !== it.id);
+        waToast("Item deleted", "success");
+      } catch (e) { waToast(e.message, "error"); }
     },
   };
 }

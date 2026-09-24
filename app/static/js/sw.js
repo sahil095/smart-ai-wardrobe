@@ -1,9 +1,6 @@
 /* Wardrobe AI service worker — app-shell caching for a fast, installable PWA. */
-const CACHE = "wardrobe-ai-v1";
+const CACHE = "wardrobe-ai-v3";
 const SHELL = [
-  "/",
-  "/static/css/app.css",
-  "/static/js/app.js",
   "/static/icons/icon.svg",
   "/static/manifest.webmanifest",
 ];
@@ -34,14 +31,25 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
-  // Never intercept API calls — they must always hit the network.
-  if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
+  // Browser extensions cannot be written to Cache Storage.
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
+
+  // Always hit the network for pages, API, and app JS/CSS so tab navigation
+  // does not serve a stale wardrobe.html / app.js (which broke delete + modal).
+  const isAppAsset =
+    url.origin === location.origin &&
+    (url.pathname.startsWith("/api/") ||
+      url.pathname.startsWith("/static/js/") ||
+      url.pathname.startsWith("/static/css/") ||
+      req.mode === "navigate" ||
+      req.destination === "document");
+
+  if (isAppAsset || url.origin !== location.origin) return;
 
   const isStatic =
     url.origin === location.origin && url.pathname.startsWith("/static/");
 
   if (isStatic) {
-    // Cache-first for static assets.
     event.respondWith(
       caches.match(req).then(
         (cached) =>
@@ -52,17 +60,6 @@ self.addEventListener("fetch", (event) => {
             return res;
           })
       )
-    );
-  } else {
-    // Network-first for pages, falling back to cache (offline shell).
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then((m) => m || caches.match("/")))
     );
   }
 });
