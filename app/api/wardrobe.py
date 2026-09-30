@@ -7,8 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, WardrobeItem
-from app.schemas import WardrobeItemCreate, WardrobeItemOut, WardrobeItemUpdate
-from app.services import image_service
+from app.schemas import (
+    WardrobeGapsOut,
+    WardrobeItemCreate,
+    WardrobeItemOut,
+    WardrobeItemUpdate,
+)
+from app.services import gap_service, image_service
 
 router = APIRouter(prefix="/api/wardrobe", tags=["wardrobe"])
 
@@ -69,6 +74,26 @@ def list_items(
                     )
                 ]
     return items
+
+
+@router.get("/gaps", response_model=WardrobeGapsOut)
+def get_gaps(user_id: int, refresh: bool = False, db: Session = Depends(get_db)):
+    if not db.get(User, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    items = db.scalars(
+        select(WardrobeItem).where(WardrobeItem.user_id == user_id)
+    ).all()
+    return gap_service.analyze(db, user_id, items, refresh=refresh)
+
+
+@router.post("/gaps", response_model=WardrobeGapsOut)
+def refresh_gaps(user_id: int, db: Session = Depends(get_db)):
+    if not db.get(User, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    items = db.scalars(
+        select(WardrobeItem).where(WardrobeItem.user_id == user_id)
+    ).all()
+    return gap_service.analyze(db, user_id, items, refresh=True)
 
 
 @router.post("", response_model=WardrobeItemOut, status_code=status.HTTP_201_CREATED)

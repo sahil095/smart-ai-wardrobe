@@ -55,6 +55,7 @@ class WardrobeItem(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Category-dependent attributes (Phase 1), e.g. {"sole_type": "Rubber"}
     attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=dict)
+    last_worn_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

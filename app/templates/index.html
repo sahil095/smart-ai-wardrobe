@@ -45,6 +45,32 @@
         </a>
       </div>
 
+      <a href="/history?tab=worn" class="card-soft mt-3 worn-strip" x-show="recentWorn.length">
+        <div class="section-title mb-2"><i class="bi bi-check2-circle"></i> Recently worn</div>
+        <div class="worn-row">
+          <template x-for="row in recentWorn" :key="row.id">
+            <div class="worn-tile">
+              <div class="d-flex gap-1">
+                <template x-for="p in snapshotThumbs(row.snapshot).slice(0,3)" :key="p.item_id">
+                  <img :src="p.display_image_url || p.image_url" :alt="p.name" />
+                </template>
+              </div>
+              <small x-text="fmtWorn(row.worn_at)"></small>
+            </div>
+          </template>
+        </div>
+      </a>
+
+      <a href="/gaps" class="card-soft mt-3 gaps-teaser">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div class="section-title mb-1"><i class="bi bi-diagram-3"></i> Wardrobe gaps</div>
+            <p class="muted mb-0" x-text="gapTeaser"></p>
+          </div>
+          <i class="bi bi-chevron-right muted"></i>
+        </div>
+      </a>
+
       <div class="card-soft mt-3">
         <div class="section-title"><i class="bi bi-lightbulb"></i> How it works</div>
         <ol class="muted mb-0" style="padding-left:18px;">
@@ -52,6 +78,7 @@
           <li>Add clothes with photos and tags.</li>
           <li>Mark laundry status — only <b>Clean</b> items are used.</li>
           <li>Generate {{ outfit_count }} outfit options based on weather & occasion.</li>
+          <li>Star looks you like and tap “I wore this” so the next generate rotates better.</li>
         </ol>
       </div>
     </div>
@@ -66,6 +93,9 @@ function homePage() {
     hasUser: false,
     greeting: "Your personal AI stylist.",
     stats: { total: 0, clean: 0 },
+    recentWorn: [],
+    gapTeaser: "See what's missing so more outfits become possible.",
+    snapshotThumbs,
     async init() {
       const uid = WA.getUserId();
       this.hasUser = !!uid;
@@ -73,10 +103,24 @@ function homePage() {
       try {
         const user = await WA.get(`/api/users/${uid}`);
         this.greeting = `Hi ${user.nickname || user.name}, let's get you dressed.`;
-        const items = await WA.get(`/api/wardrobe?user_id=${uid}`);
+        const [items, worn, gaps] = await Promise.all([
+          WA.get(`/api/wardrobe?user_id=${uid}`),
+          WA.get(`/api/outfits/worn?user_id=${uid}&limit=3`),
+          WA.get(`/api/wardrobe/gaps?user_id=${uid}`).catch(() => ({ cards: [] })),
+        ]);
         this.stats.total = items.length;
-        this.stats.clean = items.filter(i => i.laundry_status === "Clean").length;
+        this.stats.clean = items.filter((i) => i.laundry_status === "Clean").length;
+        this.recentWorn = worn.slice(0, 3);
+        const n = (gaps.cards || []).length;
+        this.gapTeaser = n ? `${n} idea${n === 1 ? "" : "s"} to fill holes` : "See what's missing so more outfits become possible.";
       } catch (e) { waToast(e.message, "error"); }
+    },
+    fmtWorn(s) {
+      try {
+        return new Date(s + (String(s).endsWith("Z") ? "" : "Z")).toLocaleDateString(undefined, {
+          weekday: "short", month: "short", day: "numeric",
+        });
+      } catch { return s; }
     },
   };
 }

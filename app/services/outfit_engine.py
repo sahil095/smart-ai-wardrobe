@@ -45,6 +45,7 @@ def _item_to_dict(item: WardrobeItem) -> dict:
         "occasion": item.occasion or [],
         "wear_frequency": item.wear_frequency,
         "favorite": item.favorite,
+        "last_worn_at": item.last_worn_at.isoformat() if item.last_worn_at else None,
         "image_url": item.image_url,
     }
 
@@ -129,6 +130,8 @@ def build_user_context(
         "color_preference": request_ctx.get("color_preference"),
         "comfort_vs_style": request_ctx.get("comfort_vs_style"),
         "user_profile": profile,
+        "recently_worn_item_ids": request_ctx.get("recently_worn_item_ids") or [],
+        "saved_outfits": request_ctx.get("saved_outfits") or [],
     }
 
 
@@ -173,15 +176,20 @@ def _validate_and_resolve(
 
 
 def _rule_based(
-    candidates: list[WardrobeItem], count: int, favorite_item_id: int | None
+    candidates: list[WardrobeItem],
+    count: int,
+    favorite_item_id: int | None,
+    recently_worn: set[int] | None = None,
 ) -> list[Outfit]:
     """Deterministic fallback: pair items across slots, preferring favorites
-    and frequently-worn pieces. Ensures each outfit is distinct."""
+    and unused pieces. Ensures each outfit is distinct."""
     freq_rank = {"Daily": 3, "Often": 2, "Sometimes": 1, "Rarely": 0}
+    recent = recently_worn or set()
 
     def sort_key(i: WardrobeItem):
         return (
             0 if favorite_item_id and i.id == favorite_item_id else 1,
+            1 if i.id in recent else 0,
             0 if i.favorite else 1,
             -freq_rank.get(i.wear_frequency or "", 0),
         )
@@ -273,8 +281,9 @@ def generate(
     else:
         ai_note = "Groq API key not configured — using built-in rule-based stylist."
 
+    recent = set(request_ctx.get("recently_worn_item_ids") or [])
     return (
-        _rule_based(candidates, count, request_ctx.get("favorite_item_id")),
+        _rule_based(candidates, count, request_ctx.get("favorite_item_id"), recent),
         False,
         ai_note,
     )

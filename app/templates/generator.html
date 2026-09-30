@@ -148,6 +148,17 @@
           <p x-show="o.occasion_suitability"><span class="lbl">Occasion: </span><span x-text="o.occasion_suitability"></span></p>
           <p x-show="o.styling_tips"><span class="lbl">Tips: </span><span x-text="o.styling_tips"></span></p>
         </div>
+        <div class="outfit-actions">
+          <button type="button" class="btn btn-sm" :class="isSaved(o) ? 'btn-primary' : 'btn-outline-primary'"
+                  @click="toggleStar(o)" :disabled="busy">
+            <i class="bi" :class="isSaved(o) ? 'bi-star-fill' : 'bi-star'"></i>
+            <span x-text="isSaved(o) ? 'Saved' : 'Save'"></span>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="wear(o)"
+                  :disabled="busy || !canWear(outfitItemIds(o))">
+            <i class="bi bi-check2-circle"></i> I wore this
+          </button>
+        </div>
       </div>
     </template>
   </div>
@@ -159,8 +170,9 @@
 <script>
 function generatorPage() {
   return {
-    opts: {}, hasUser: false, loading: false, result: null,
-    cleanItems: [], weatherMode: "manual", geoStatus: "",
+    opts: {}, hasUser: false, loading: false, busy: false, result: null,
+    cleanItems: [], itemsById: {}, savedByFp: {},
+    weatherMode: "manual", geoStatus: "",
     req: {
       user_id: null, occasion: "", time_of_day: "", dress_code: "",
       color_preference: "", comfort_vs_style: "Balanced", favorite_item_id: null,
@@ -173,8 +185,54 @@ function generatorPage() {
       if (!uid) return;
       this.req.user_id = uid;
       this.opts = await WA.get("/api/meta/options");
-      const items = await WA.get(`/api/wardrobe?user_id=${uid}&laundry_status=Clean`);
-      this.cleanItems = items;
+      const items = await WA.get(`/api/wardrobe?user_id=${uid}`);
+      this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
+      this.cleanItems = items.filter((i) => i.laundry_status === "Clean");
+      await this.refreshSaved();
+    },
+    async refreshSaved() {
+      const rows = await WA.get(`/api/outfits/saved?user_id=${this.req.user_id}`);
+      this.savedByFp = {};
+      for (const row of rows) this.savedByFp[row.fingerprint] = row;
+    },
+    outfitItemIds,
+    fp(ids) { return fingerprintIds(ids); },
+    isSaved(o) { return !!this.savedByFp[fingerprintIds(outfitItemIds(o))]; },
+    canWear(ids) {
+      return ids.length > 0 && ids.every((id) => this.itemsById[id] && this.itemsById[id].laundry_status === "Clean");
+    },
+    async toggleStar(o) {
+      const ids = outfitItemIds(o);
+      if (!ids.length) return;
+      const fp = fingerprintIds(ids);
+      this.busy = true;
+      try {
+        const existing = this.savedByFp[fp];
+        if (existing) {
+          await WA.del(`/api/outfits/saved/${existing.id}`);
+          const next = { ...this.savedByFp };
+          delete next[fp];
+          this.savedByFp = next;
+          waToast("Removed from saved", "success");
+        } else {
+          const row = await WA.post("/api/outfits/save", { user_id: this.req.user_id, item_ids: ids });
+          this.savedByFp = { ...this.savedByFp, [fp]: row };
+          waToast("Outfit saved", "success");
+        }
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
+    async wear(o) {
+      this.busy = true;
+      try {
+        const result = await logWearAndMaybeLaundry(this.req.user_id, outfitItemIds(o), "generated", this.itemsById);
+        if (result === "laundry") {
+          const items = await WA.get(`/api/wardrobe?user_id=${this.req.user_id}`);
+          this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
+          this.cleanItems = items.filter((i) => i.laundry_status === "Clean");
+        }
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
     },
     slots(o) {
       return [

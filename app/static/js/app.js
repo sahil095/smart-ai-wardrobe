@@ -133,3 +133,62 @@ function toggleInArray(arr, value) {
   else arr.splice(i, 1);
   return arr;
 }
+
+/* ---------- Outfit helpers (saved / worn) ---------- */
+function outfitPieces(o) {
+  if (!o) return [];
+  return [o.upper, o.lower, o.shoes, o.outerwear, ...(o.accessories || [])].filter(Boolean);
+}
+
+function outfitItemIds(o) {
+  return outfitPieces(o).map((p) => p.item_id).filter(Boolean);
+}
+
+function fingerprintIds(ids) {
+  return [...new Set((ids || []).map((n) => parseInt(n, 10)).filter((n) => n > 0))]
+    .sort((a, b) => a - b)
+    .join(",");
+}
+
+function snapshotThumbs(snapshot) {
+  return (snapshot || []).filter((p) => p.display_image_url || p.image_url);
+}
+
+function snapshotNames(snapshot) {
+  return (snapshot || []).map((p) => p.name).filter(Boolean).join(" + ");
+}
+
+async function sendItemsToLaundry(ids) {
+  const unique = [...new Set(ids || [])];
+  await Promise.all(
+    unique.map((id) => WA.put(`/api/wardrobe/${id}`, { laundry_status: "Laundry" }))
+  );
+}
+
+async function logWearAndMaybeLaundry(userId, ids, source, itemsById) {
+  const dirty = (ids || []).some((id) => {
+    const it = itemsById && itemsById[id];
+    return !it || it.laundry_status !== "Clean";
+  });
+  if (dirty) {
+    waToast("Some pieces are not clean — wear is disabled.", "error");
+    return false;
+  }
+  await WA.post("/api/outfits/wear", {
+    user_id: userId,
+    item_ids: ids,
+    source: source || "generated",
+  });
+  waToast("Logged as worn", "success");
+  const ok = await waConfirm({
+    title: "Send these to laundry?",
+    message: "Wearing does not change laundry automatically. Send these pieces to laundry now?",
+    confirmLabel: "Send to laundry",
+  });
+  if (ok) {
+    await sendItemsToLaundry(ids);
+    waToast("Sent to laundry", "success");
+    return "laundry";
+  }
+  return "worn";
+}

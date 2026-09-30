@@ -1,19 +1,23 @@
 """Outfit generation + history API."""
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import OutfitHistory, User, WardrobeItem
+from app.models import OutfitHistory, SavedOutfit, User, WardrobeItem, WearEvent
 from app.schemas import (
     OutfitGenerateRequest,
     OutfitGenerateResponse,
     OutfitHistoryOut,
+    OutfitIdsIn,
+    SavedOutfitOut,
+    WearEventOut,
     WeatherInfo,
 )
-from app.services import outfit_engine, weather_service
+from app.services import outfit_engine, outfit_log, weather_service
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,8 @@ async def generate_outfits(
         "color_preference": req.color_preference,
         "comfort_vs_style": req.comfort_vs_style,
         "favorite_item_id": req.favorite_item_id,
+        "recently_worn_item_ids": outfit_log.recently_worn_item_ids(db, req.user_id),
+        "saved_outfits": outfit_log.saved_fingerprints(db, req.user_id),
     }
 
     outfits, used_ai, note = outfit_engine.generate(user, items, weather, request_ctx)
@@ -123,3 +129,88 @@ def delete_history(history_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="History entry not found")
     db.delete(row)
     db.commit()
+
+
+@router.get("/saved", response_model=list[SavedOutfitOut])
+def list_saved(user_id: int, db: Session = Depends(get_db)):
+    return db.scalars(
+        select(SavedOutfit)
+        .where(SavedOutfit.user_id == user_id)
+        .order_by(SavedOutfit.created_at.desc())
+    ).all()
+
+
+@router.post("/save", response_model=SavedOutfitOut)
+def save_outfit(payload: OutfitIdsIn, db: Session = Depends(get_db)):
+    if not db.get(User, payload.user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    ids = outfit_log.normalize_ids(payload.item_ids)
+    if not ids:
+        raise HTTPException(status_code=400, detail="Select at least one item.")
+    fp = outfit_log.fingerprint(ids)
+    existing = db.scalar(
+        select(SavedOutfit).where(
+            SavedOutfit.user_id == payload.user_id,
+            SavedOutfit.fingerprint == fp,
+        )
+    )
+    if existing:
+        return existing
+    row = SavedOutfit(
+        user_id=payload.user_id,
+        item_ids=ids,
+        fingerprint=fp,
+        snapshot=outfit_log.snapshot_items(db, payload.user_id, ids),
+        label=payload.label,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete("/saved/{saved_id}", status_code=204)
+def unsave_outfit(saved_id: int, db: Session = Depends(get_db)):
+    row = db.get(SavedOutfit, saved_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Saved outfit not found")
+    db.delete(row)
+    db.commit()
+
+
+@router.get("/worn", response_model=list[WearEventOut])
+def list_worn(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
+    return db.scalars(
+        select(WearEvent)
+        .where(WearEvent.user_id == user_id)
+        .order_by(WearEvent.worn_at.desc())
+        .limit(limit)
+    ).all()
+
+
+@router.post("/wear", response_model=WearEventOut)
+def log_wear(payload: OutfitIdsIn, db: Session = Depends(get_db)):
+    if not db.get(User, payload.user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    ids = outfit_log.normalize_ids(payload.item_ids)
+    if not ids:
+        raise HTTPException(status_code=400, detail="Select at least one item.")
+    now = datetime.utcnow()
+    event = WearEvent(
+        user_id=payload.user_id,
+        item_ids=ids,
+        snapshot=outfit_log.snapshot_items(db, payload.user_id, ids),
+        source=payload.source or "generated",
+        worn_at=now,
+    )
+    db.add(event)
+    items = db.scalars(
+        select(WardrobeItem).where(
+            WardrobeItem.user_id == payload.user_id, WardrobeItem.id.in_(ids)
+        )
+    ).all()
+    for it in items:
+        it.last_worn_at = now
+    db.commit()
+    db.refresh(event)
+    return event

@@ -80,5 +80,6 @@ class WardrobeItemOut(WardrobeItemBase):
 
     id: int
     user_id: int
+    last_worn_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

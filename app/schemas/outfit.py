@@ -72,3 +72,47 @@ class OutfitHistoryOut(BaseModel):
     context: dict | None = None
     outfits: list | None = None
     created_at: datetime
+
+
+class OutfitIdsIn(BaseModel):
+    user_id: int
+    item_ids: list[int] = Field(default_factory=list)
+    source: str | None = None
+    label: str | None = None
+
+
+class SavedOutfitOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    item_ids: list
+    snapshot: list | None = None
+    label: str | None = None
+    fingerprint: str
+    created_at: datetime
+
+
+class WearEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    item_ids: list
+    snapshot: list | None = None
+    source: str
+    worn_at: datetime
+
+
+class GapCard(BaseModel):
+    title: str
+    why: str = ""
+    suggestion: str = ""
+    severity: str = "medium"
+
+
+class WardrobeGapsOut(BaseModel):
+    cards: list[GapCard] = Field(default_factory=list)
+    used_ai: bool = False
+    cached: bool = False
+    census: dict | None = None

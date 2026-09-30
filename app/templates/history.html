@@ -13,47 +13,129 @@
     </div>
   </template>
 
-  <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
-
-  <template x-if="hasUser && !loading && entries.length === 0">
-    <div class="empty-state">
-      <i class="bi bi-clock"></i>
-      <p>No outfits generated yet.</p>
-      <a href="/generator" class="btn btn-primary"><i class="bi bi-stars"></i> Generate an outfit</a>
+  <template x-if="hasUser">
+  <div>
+    <div class="seg-chips">
+      <button type="button" class="chip" :class="{selected: tab === 'generated'}" @click="tab = 'generated'">Generated</button>
+      <button type="button" class="chip" :class="{selected: tab === 'saved'}" @click="tab = 'saved'">Saved</button>
+      <button type="button" class="chip" :class="{selected: tab === 'worn'}" @click="tab = 'worn'">Worn</button>
     </div>
-  </template>
 
-  <template x-for="entry in entries" :key="entry.id">
-    <div class="card-soft">
-      <div class="d-flex justify-content-between align-items-start mb-2">
-        <div>
-          <b x-text="entry.occasion || 'Any occasion'"></b>
-          <div class="muted small" x-text="fmtDate(entry.created_at)"></div>
-          <div class="muted small" x-show="entry.context && entry.context.weather"
-               x-text="weatherLabel(entry.context)"></div>
+    <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
+
+    <!-- Generated -->
+    <div x-show="!loading && tab === 'generated'">
+      <template x-if="entries.length === 0">
+        <div class="empty-state">
+          <i class="bi bi-clock"></i>
+          <p>No outfits generated yet.</p>
+          <a href="/generator" class="btn btn-primary"><i class="bi bi-stars"></i> Generate an outfit</a>
         </div>
-        <button class="btn btn-sm btn-outline-danger" @click="remove(entry.id)"><i class="bi bi-trash"></i></button>
-      </div>
-      <div class="row g-2">
-        <template x-for="(o, idx) in entry.outfits" :key="idx">
-          <div class="col-6">
-            <div style="border:1px solid var(--wa-border);border-radius:12px;padding:8px;">
-              <div class="small fw-bold mb-1">Option <span x-text="idx+1"></span>
-                <span class="confidence" style="float:right;padding:1px 7px;font-size:0.7rem;" x-text="o.confidence_score + '%'"></span>
-              </div>
-              <div class="d-flex gap-1 flex-wrap">
-                <template x-for="p in pieces(o)" :key="p.item_id">
-                  <template x-if="p.display_image_url || p.image_url">
-                    <img :src="p.display_image_url || p.image_url" :title="p.name" style="width:38px;height:38px;object-fit:cover;border-radius:8px;" />
-                  </template>
-                </template>
-              </div>
-              <div class="small muted mt-1" x-text="summary(o)"></div>
+      </template>
+      <template x-for="entry in entries" :key="entry.id">
+        <div class="card-soft">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <b x-text="entry.occasion || 'Any occasion'"></b>
+              <div class="muted small" x-text="fmtDate(entry.created_at)"></div>
+              <div class="muted small" x-show="entry.context && entry.context.weather"
+                   x-text="weatherLabel(entry.context)"></div>
             </div>
+            <button class="btn btn-sm btn-outline-danger" @click="remove(entry.id)"><i class="bi bi-trash"></i></button>
           </div>
-        </template>
-      </div>
+          <div class="row g-2">
+            <template x-for="(o, idx) in entry.outfits" :key="idx">
+              <div class="col-6">
+                <div class="hist-look">
+                  <div class="small fw-bold mb-1">Option <span x-text="idx+1"></span>
+                    <span class="confidence" style="float:right;padding:1px 7px;font-size:0.7rem;" x-text="o.confidence_score + '%'"></span>
+                  </div>
+                  <div class="d-flex gap-1 flex-wrap">
+                    <template x-for="p in pieces(o)" :key="p.item_id">
+                      <template x-if="p.display_image_url || p.image_url">
+                        <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-sm" />
+                      </template>
+                    </template>
+                  </div>
+                  <div class="small muted mt-1" x-text="summary(o)"></div>
+                  <div class="outfit-actions mt-2">
+                    <button type="button" class="btn btn-sm" :class="isSavedIds(outfitItemIds(o)) ? 'btn-primary' : 'btn-outline-primary'"
+                            @click="toggleStarIds(outfitItemIds(o))" :disabled="busy">
+                      <i class="bi" :class="isSavedIds(outfitItemIds(o)) ? 'bi-star-fill' : 'bi-star'"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            @click="wearIds(outfitItemIds(o), 'generated')"
+                            :disabled="busy || !canWear(outfitItemIds(o))">
+                      Wear
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
     </div>
+
+    <!-- Saved -->
+    <div x-show="!loading && tab === 'saved'">
+      <template x-if="saved.length === 0">
+        <div class="empty-state">
+          <i class="bi bi-star"></i>
+          <p>Star an outfit on the generator to save it.</p>
+        </div>
+      </template>
+      <template x-for="row in saved" :key="row.id">
+        <div class="card-soft">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <b x-text="row.label || snapshotNames(row.snapshot) || 'Saved look'"></b>
+              <div class="muted small" x-text="fmtDate(row.created_at)"></div>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" @click="unstar(row)" :disabled="busy">
+              <i class="bi bi-star-fill"></i> Unstar
+            </button>
+          </div>
+          <div class="d-flex gap-1 flex-wrap mb-2">
+            <template x-for="p in snapshotThumbs(row.snapshot)" :key="p.item_id">
+              <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-md" />
+            </template>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+                  @click="wearIds(row.item_ids, 'saved')"
+                  :disabled="busy || !canWear(row.item_ids)">
+            <i class="bi bi-check2-circle"></i> Wear this
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Worn -->
+    <div x-show="!loading && tab === 'worn'">
+      <template x-if="worn.length === 0">
+        <div class="empty-state">
+          <i class="bi bi-check2-circle"></i>
+          <p>Tap “I wore this” after you get dressed.</p>
+        </div>
+      </template>
+      <template x-for="row in worn" :key="row.id">
+        <div class="card-soft">
+          <div class="mb-2">
+            <b x-text="snapshotNames(row.snapshot) || 'Worn look'"></b>
+            <div class="muted small" x-text="fmtDate(row.worn_at)"></div>
+          </div>
+          <div class="d-flex gap-1 flex-wrap mb-2">
+            <template x-for="p in snapshotThumbs(row.snapshot)" :key="p.item_id">
+              <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-md" />
+            </template>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="laundrySet(row.item_ids)" :disabled="busy">
+            <i class="bi bi-basket"></i> Send to laundry
+          </button>
+        </div>
+      </template>
+    </div>
+  </div>
   </template>
 </div>
 {% endblock %}
@@ -62,24 +144,46 @@
 <script>
 function historyPage() {
   return {
-    entries: [], loading: false, hasUser: false,
+    tab: "generated",
+    entries: [], saved: [], worn: [],
+    itemsById: {}, savedByFp: {},
+    loading: false, busy: false, hasUser: false, userId: null,
     async init() {
       const uid = WA.getUserId();
       this.hasUser = !!uid;
       if (!uid) return;
+      this.userId = uid;
+      const params = new URLSearchParams(location.search);
+      const t = params.get("tab");
+      if (t === "saved" || t === "worn" || t === "generated") this.tab = t;
       this.loading = true;
-      try { this.entries = await WA.get(`/api/outfits/history?user_id=${uid}`); }
-      catch (e) { waToast(e.message, "error"); }
+      try {
+        const [items, entries, saved, worn] = await Promise.all([
+          WA.get(`/api/wardrobe?user_id=${uid}`),
+          WA.get(`/api/outfits/history?user_id=${uid}`),
+          WA.get(`/api/outfits/saved?user_id=${uid}`),
+          WA.get(`/api/outfits/worn?user_id=${uid}`),
+        ]);
+        this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
+        this.entries = entries;
+        this.saved = saved;
+        this.worn = worn;
+        this.savedByFp = {};
+        for (const row of saved) this.savedByFp[row.fingerprint] = row;
+      } catch (e) { waToast(e.message, "error"); }
       finally { this.loading = false; }
     },
-    pieces(o) {
-      return [o.upper, o.lower, o.shoes, o.outerwear, ...(o.accessories || [])].filter(Boolean);
-    },
-    summary(o) {
-      return this.pieces(o).map(p => p.name).join(" + ");
+    pieces: outfitPieces,
+    summary(o) { return outfitPieces(o).map((p) => p.name).join(" + "); },
+    snapshotThumbs,
+    snapshotNames,
+    outfitItemIds,
+    isSavedIds(ids) { return !!this.savedByFp[fingerprintIds(ids)]; },
+    canWear(ids) {
+      return (ids || []).length > 0 && ids.every((id) => this.itemsById[id] && this.itemsById[id].laundry_status === "Clean");
     },
     fmtDate(s) {
-      try { return new Date(s + (s.endsWith('Z') ? '' : 'Z')).toLocaleString(); }
+      try { return new Date(s + (String(s).endsWith("Z") ? "" : "Z")).toLocaleString(); }
       catch { return s; }
     },
     weatherLabel(ctx) {
@@ -91,6 +195,63 @@ function historyPage() {
       if (w.location_name) parts.push(w.location_name);
       return parts.join(" · ");
     },
+    async toggleStarIds(ids) {
+      this.busy = true;
+      try {
+        const fp = fingerprintIds(ids);
+        const existing = this.savedByFp[fp];
+        if (existing) await this.unstar(existing);
+        else {
+          const row = await WA.post("/api/outfits/save", { user_id: this.userId, item_ids: ids });
+          this.saved = [row, ...this.saved];
+          this.savedByFp = { ...this.savedByFp, [fp]: row };
+          waToast("Outfit saved", "success");
+        }
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
+    async unstar(row) {
+      this.busy = true;
+      try {
+        await WA.del(`/api/outfits/saved/${row.id}`);
+        this.saved = this.saved.filter((s) => s.id !== row.id);
+        const next = { ...this.savedByFp };
+        delete next[row.fingerprint];
+        this.savedByFp = next;
+        waToast("Removed from saved", "success");
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
+    async wearIds(ids, source) {
+      this.busy = true;
+      try {
+        const result = await logWearAndMaybeLaundry(this.userId, ids, source, this.itemsById);
+        if (result) {
+          this.worn = await WA.get(`/api/outfits/worn?user_id=${this.userId}`);
+          if (result === "laundry") {
+            const items = await WA.get(`/api/wardrobe?user_id=${this.userId}`);
+            this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
+          }
+        }
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
+    async laundrySet(ids) {
+      const ok = await waConfirm({
+        title: "Send these to laundry?",
+        message: "Mark every piece in this worn look as in laundry?",
+        confirmLabel: "Send to laundry",
+      });
+      if (!ok) return;
+      this.busy = true;
+      try {
+        await sendItemsToLaundry(ids);
+        const items = await WA.get(`/api/wardrobe?user_id=${this.userId}`);
+        this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
+        waToast("Sent to laundry", "success");
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
     async remove(id) {
       const ok = await waConfirm({
         title: "Delete history?",
@@ -100,7 +261,7 @@ function historyPage() {
       if (!ok) return;
       try {
         await WA.del(`/api/outfits/history/${id}`);
-        this.entries = this.entries.filter(e => e.id !== id);
+        this.entries = this.entries.filter((e) => e.id !== id);
         waToast("Deleted", "success");
       } catch (e) { waToast(e.message, "error"); }
     },

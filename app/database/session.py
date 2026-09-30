@@ -61,6 +61,7 @@ _ADDED_COLUMNS = {
         ("display_image_url", "VARCHAR(700)"),
         ("image_public_id", "VARCHAR(300)"),
         ("attributes", "JSON"),
+        ("last_worn_at", "TIMESTAMP"),
     ],
 }
 

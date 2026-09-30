@@ -39,3 +39,6 @@ services:
         value: "F5F6F8"
       - key: IMAGE_ASPECT
         value: "1:1"
+      # Wardrobe gap analysis cache (hours; busts if wardrobe tags change)
+      - key: GAP_CACHE_HOURS
+        value: "24"

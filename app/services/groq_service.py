@@ -31,6 +31,10 @@ SYSTEM_PROMPT = (
     "exist in the candidates. Add Outerwear/Accessories only from candidates.\n"
     "- Respect this priority order: 1) Weather 2) Occasion 3) Color harmony "
     "4) Skin tone 5) Body type 6) User preferences 7) Wear frequency.\n"
+    "- Prefer items that were NOT recently worn (see recently_worn_item_ids). "
+    "Do not repeat yesterday's exact item set.\n"
+    "- You MAY echo a saved favorite outfit if it still fits weather/occasion "
+    "and those items are in the candidate list.\n"
     "- Return valid JSON only, no prose outside JSON."
 )
 
@@ -120,6 +124,60 @@ def generate_attribute_schema(category: str, subcategory: str | None) -> list[di
                 field["options"] = opts[:8]
         cleaned.append(field)
     return cleaned[:8]
+
+
+GAP_SYSTEM_PROMPT = (
+    "You are a wardrobe analyst. Given a census of clothes the user already "
+    "owns, identify 4-6 practical GAPS — types of garments that are missing "
+    "or under-represented so they could form more outfits. "
+    "Never recommend a brand, shop, or SKU. Never invent items they already "
+    "have in volume. Return JSON only."
+)
+
+
+def generate_gap_cards(census: dict) -> list[dict]:
+    """Ask Groq for wardrobe-gap cards grounded in a census dict."""
+    client = _get_client()
+    user_prompt = (
+        "WARDROBE CENSUS:\n"
+        f"{json.dumps(census, ensure_ascii=False, indent=2)}\n\n"
+        "Return JSON of this exact shape:\n"
+        '{ "cards": [ {\n'
+        '  "title": "short gap title",\n'
+        '  "why": "1-2 sentences citing the census",\n'
+        '  "suggestion": "what type of item to add (no brand)",\n'
+        '  "severity": "high" | "medium"\n'
+        "} ] }\n"
+        "Max 6 cards. Only mention categories/colors that are missing or scarce."
+    )
+    completion = client.chat.completions.create(
+        model=settings.groq_model,
+        messages=[
+            {"role": "system", "content": GAP_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
+    )
+    content = completion.choices[0].message.content or "{}"
+    data = json.loads(content)
+    cards = data.get("cards", [])
+    if not isinstance(cards, list):
+        return []
+    cleaned = []
+    for c in cards:
+        if not isinstance(c, dict) or not c.get("title"):
+            continue
+        sev = c.get("severity") if c.get("severity") in ("high", "medium") else "medium"
+        cleaned.append(
+            {
+                "title": str(c.get("title", ""))[:120],
+                "why": str(c.get("why", ""))[:400],
+                "suggestion": str(c.get("suggestion", ""))[:240],
+                "severity": sev,
+            }
+        )
+    return cleaned[:6]
 
 
 def generate_outfits(context: dict, candidates: list[dict], count: int) -> list[dict]:

@@ -106,3 +106,8 @@ def generator_page(request: Request):
 @app.get("/history", response_class=HTMLResponse)
 def history_page(request: Request):
     return _page(request, "history.html", active="history")
+
+
+@app.get("/gaps", response_class=HTMLResponse)
+def gaps_page(request: Request):
+    return _page(request, "gaps.html", active="home")

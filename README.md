@@ -7,6 +7,18 @@ garments — every suggestion is validated against your own uploaded items.
 Answers one question: **"What should I wear today?"** based on weather,
 occasion, your profile, your wardrobe, and laundry status.
 
+## What's new (Phase 2)
+
+- **Saved outfits:** star a generated look to reuse it. Saved sets also nudge
+  the next generate toward looks you already liked.
+- **I wore this:** logs a wear event and `last_worn_at` on those items. Wearing
+  does **not** auto-send pieces to laundry — you get an optional confirm after.
+- **History segments:** Generated | Saved | Worn.
+- **Home:** recently-worn strip (last 3) and a wardrobe-gaps teaser.
+- **Gaps page (`/gaps`):** Groq reads a tag census (category, color, season,
+  occasion) and names missing staples. Rule-based fallback if AI is off.
+  Cached 24h per user unless the wardrobe changes. No shop links.
+
 ## What's new (Phase 0 + 1)
 
 - **Standardized "retail" images:** uploads are background-removed and padded
@@ -46,7 +58,7 @@ app/
   api/         # FastAPI routers (users, wardrobe, weather, outfits, meta)
   models/      # SQLAlchemy models (User, WardrobeItem, OutfitHistory)
   schemas/     # Pydantic schemas
-  services/    # image storage, weather (Open-Meteo), Groq, outfit engine
+  services/    # image storage, weather, Groq, outfit engine, wear log, gaps
   database/    # engine/session/init
   static/      # css, js, uploads (local image fallback)
   templates/   # Jinja2 mobile pages
@@ -108,6 +120,8 @@ docs/
 ## How the AI stays honest
 
 - Only items with **Laundry Status = Clean** are eligible.
+- Recently worn items (last 7 days) are down-ranked so looks rotate; saved
+  outfits may be echoed if they still fit weather/occasion.
 - Items are pre-filtered by current weather + occasion.
 - The clean candidate list (with numeric IDs) is sent to Groq, which may only
   reference those IDs.
@@ -139,6 +153,7 @@ on startup.
 | `STANDARDIZE_IMAGES` | Background-remove + pad uploads (needs Cloudinary bg-removal) | `true` |
 | `IMAGE_BG_COLOR` | Standardized background color (hex, no `#`) | `F5F6F8` |
 | `IMAGE_ASPECT` | Standardized aspect ratio | `1:1` |
+| `GAP_CACHE_HOURS` | How long a gaps analysis is reused | `24` |
 
 ## Deploying (Render + Neon Postgres, free) — use it on your phone
 
