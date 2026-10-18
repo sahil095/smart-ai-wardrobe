@@ -7,7 +7,7 @@
 
   <template x-if="!hasUser">
     <div class="card-soft empty-state">
-      <i class="bi bi-person-x"></i>
+      {% include "_hanger.html" %}
       <p>Create a profile first.</p>
       <a href="/profile" class="btn btn-primary">Go to Profile</a>
     </div>
@@ -188,9 +188,14 @@
     <label class="form-label mt-2">Notes</label>
     <textarea class="form-control" rows="2" x-model="form.notes"></textarea>
 
-    <div class="d-flex gap-2 mt-3">
+    <div class="d-flex flex-wrap gap-2 mt-3">
       <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving" x-text="form.id ? 'Update' : 'Save item'"></button>
       <button type="button" class="btn btn-outline-secondary" @click="cancel()" :disabled="saving">Cancel</button>
+      <template x-if="form.id">
+        <button type="button" class="btn btn-outline-primary" @click="completeLook()" :disabled="saving">
+          <i class="bi bi-magic"></i> Complete the look
+        </button>
+      </template>
       <template x-if="form.id">
         <button type="button" class="btn btn-outline-danger" @click="remove()" :disabled="saving"><i class="bi bi-trash"></i></button>
       </template>
@@ -264,6 +269,10 @@ function itemForm() {
     cancel() {
       if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
       location.href = "/wardrobe";
+    },
+    completeLook() {
+      if (!this.form.id) return;
+      location.href = "/generator?item_id=" + this.form.id;
     },
     async save() {
       this.saving = true;

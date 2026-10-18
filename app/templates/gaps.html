@@ -25,7 +25,7 @@
 
   <template x-if="hasUser && !loading && cards.length === 0">
     <div class="empty-state">
-      <i class="bi bi-bag-plus"></i>
+      {% include "_hanger.html" %}
       <p>Add more tagged items for a useful analysis.</p>
       <a href="/add" class="btn btn-primary">Add an item</a>
     </div>

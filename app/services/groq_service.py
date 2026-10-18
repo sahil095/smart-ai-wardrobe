@@ -35,6 +35,9 @@ SYSTEM_PROMPT = (
     "Do not repeat yesterday's exact item set.\n"
     "- You MAY echo a saved favorite outfit if it still fits weather/occasion "
     "and those items are in the candidate list.\n"
+    "- If CONTEXT.favorite_item is set, EVERY outfit MUST use that item_id in "
+    "the matching slot (upper_id / lower_id / shoes_id / outerwear_id / "
+    "accessory_ids). Build the rest of the look around it from candidates.\n"
     "- Return valid JSON only, no prose outside JSON."
 )
 

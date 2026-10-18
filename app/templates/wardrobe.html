@@ -7,7 +7,7 @@
 
   <template x-if="!hasUser">
     <div class="card-soft empty-state">
-      <i class="bi bi-person-x"></i>
+      {% include "_hanger.html" %}
       <p>Create a profile first.</p>
       <a href="/profile" class="btn btn-primary">Go to Profile</a>
     </div>
@@ -60,7 +60,7 @@
 
     <template x-if="!loading && items.length === 0">
       <div class="empty-state">
-        <i class="bi bi-hanger"></i>
+        {% include "_hanger.html" %}
         <p>No items found.</p>
         <a href="/add" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add your first item</a>
       </div>
@@ -81,6 +81,10 @@
             <span class="fav-badge"><i class="bi bi-star-fill"></i></span>
           </template>
           <div class="item-actions">
+            <button type="button" class="item-action complete" title="Complete the look"
+                    @click.stop="location.href = '/generator?item_id=' + it.id">
+              <i class="bi bi-magic"></i>
+            </button>
             <button type="button" class="item-action laundry"
                     :class="{'is-laundry': it.laundry_status === 'Laundry'}"
                     :title="it.laundry_status === 'Laundry' ? 'Mark clean' : 'Send to laundry'"
@@ -94,7 +98,10 @@
           </div>
           <div class="item-body">
             <b x-text="it.name"></b>
-            <small x-text="[it.category, it.subcategory].filter(Boolean).join(' · ')"></small>
+            <small>
+              <span class="color-dot" x-show="it.primary_color" :style="'background:' + colorToCss(it.primary_color)" :title="it.primary_color"></span>
+              <span x-text="[it.category, it.subcategory].filter(Boolean).join(' · ')"></span>
+            </small>
           </div>
         </div>
       </template>
@@ -109,6 +116,7 @@
 function wardrobePage() {
   return {
     opts: {}, items: [], loading: false, hasUser: false,
+    colorToCss,
     filters: { search: "", category: "", season: "", laundry_status: "", favorites_only: false },
     attrSchema: [], attrFilters: {},
     async init() {

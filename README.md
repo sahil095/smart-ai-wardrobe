@@ -7,6 +7,16 @@ garments — every suggestion is validated against your own uploaded items.
 Answers one question: **"What should I wear today?"** based on weather,
 occasion, your profile, your wardrobe, and laundry status.
 
+## What's new (Phase 3)
+
+- **Complete the look:** from a wardrobe card or item edit, generate 2 outfits
+  that **must** include that piece. Groq (and the rule fallback) pin it into
+  the matching slot. Dirty items open the generator with a note until marked Clean.
+- **Editorial UI:** cream canvas, ink type (Fraunces + DM Sans), clay accent,
+  floating pill tab bar, bottom-sheet confirms, color pips on cards.
+
+Beautify and virtual try-on stay parked for a later paid-API phase.
+
 ## What's new (Phase 2)
 
 - **Saved outfits:** star a generated look to reuse it. Saved sets also nudge

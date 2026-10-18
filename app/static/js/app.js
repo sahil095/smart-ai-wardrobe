@@ -58,7 +58,7 @@ function appShell() {
     currentUserId: "",
     toast: { show: false, msg: "", type: "" },
     confirmDlg: {
-      show: false, title: "", message: "", confirmLabel: "Delete", resolve: null,
+      show: false, title: "", message: "", confirmLabel: "Delete", danger: true, resolve: null,
     },
     async init() {
       window.addEventListener("wa-toast", (e) => this.showToast(e.detail));
@@ -108,12 +108,18 @@ function appShell() {
       clearTimeout(this._t);
       this._t = setTimeout(() => (this.toast.show = false), 2600);
     },
-    openConfirm({ title, message, confirmLabel, resolve }) {
+    openConfirm({ title, message, confirmLabel, resolve, danger }) {
+      const label = confirmLabel || "Delete";
+      const heading = title || "Delete listing?";
+      const isDanger = danger !== undefined
+        ? !!danger
+        : /delete/i.test(heading + " " + label);
       this.confirmDlg = {
         show: true,
-        title: title || "Delete listing?",
+        title: heading,
         message: message || "This will delete the listing. This cannot be undone.",
-        confirmLabel: confirmLabel || "Delete",
+        confirmLabel: label,
+        danger: isDanger,
         resolve,
       };
     },
@@ -127,6 +133,12 @@ function appShell() {
 }
 
 /* ---------- Reusable multi-select chip helper ---------- */
+function colorToCss(name) {
+  if (!name) return "transparent";
+  const n = String(name).trim();
+  return n;
+}
+
 function toggleInArray(arr, value) {
   const i = arr.indexOf(value);
   if (i === -1) arr.push(value);

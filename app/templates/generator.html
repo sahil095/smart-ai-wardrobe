@@ -7,7 +7,7 @@
 
   <template x-if="!hasUser">
     <div class="card-soft empty-state">
-      <i class="bi bi-person-x"></i>
+      {% include "_hanger.html" %}
       <p>Create a profile first.</p>
       <a href="/profile" class="btn btn-primary">Go to Profile</a>
     </div>
@@ -15,6 +15,19 @@
 
   <template x-if="hasUser">
   <div>
+    <template x-if="lockedAnchor && anchorItem">
+      <div class="anchor-banner card-soft">
+        <template x-if="anchorItem.display_image_url || anchorItem.image_url">
+          <img :src="anchorItem.display_image_url || anchorItem.image_url" :alt="anchorItem.name" />
+        </template>
+        <div class="flex-grow-1">
+          <div class="section-title mb-1">Complete the look: <span x-text="anchorItem.name"></span></div>
+          <p class="muted small mb-0" x-show="!anchorDirty">Both outfits will include this piece. The rest comes from your clean wardrobe.</p>
+          <p class="small mb-0" style="color:#c45c26;" x-show="anchorDirty">This piece is not Clean. Mark it Clean to generate around it.</p>
+        </div>
+      </div>
+    </template>
+
     <form class="card-soft" @submit.prevent="generate()">
       <div class="row g-2">
         <div class="col-6">
@@ -51,13 +64,17 @@
         </template>
       </div>
 
-      <label class="form-label">Must-include favorite item (optional)</label>
-      <select class="form-select mb-2" x-model.number="req.favorite_item_id">
-        <option :value="null">None</option>
-        <template x-for="it in cleanItems" :key="it.id">
-          <option :value="it.id" x-text="it.name + ' (' + it.category + ')'"></option>
-        </template>
-      </select>
+      <template x-if="!lockedAnchor">
+        <div>
+          <label class="form-label">Must-include favorite item (optional)</label>
+          <select class="form-select mb-2" x-model.number="req.favorite_item_id">
+            <option :value="null">None</option>
+            <template x-for="it in cleanItems" :key="it.id">
+              <option :value="it.id" x-text="it.name + ' (' + it.category + ')'"></option>
+            </template>
+          </select>
+        </div>
+      </template>
 
       <div class="divider"></div>
 
@@ -95,7 +112,7 @@
         </div>
       </template>
 
-      <button type="submit" class="btn btn-gradient w-100" :disabled="loading">
+      <button type="submit" class="btn btn-gradient w-100" :disabled="loading || anchorDirty">
         <span x-show="!loading"><i class="bi bi-magic"></i> Generate {{ outfit_count }} outfits</span>
         <span x-show="loading"><span class="spinner-border spinner-border-sm"></span> Styling…</span>
       </button>
@@ -147,6 +164,11 @@
           <p x-show="o.weather_suitability"><span class="lbl">Weather: </span><span x-text="o.weather_suitability"></span></p>
           <p x-show="o.occasion_suitability"><span class="lbl">Occasion: </span><span x-text="o.occasion_suitability"></span></p>
           <p x-show="o.styling_tips"><span class="lbl">Tips: </span><span x-text="o.styling_tips"></span></p>
+          <div class="color-dots" x-show="colorDots(o).length">
+            <template x-for="(c, i) in colorDots(o)" :key="i">
+              <span class="color-dot" :style="'background:' + colorToCss(c)" :title="c"></span>
+            </template>
+          </div>
         </div>
         <div class="outfit-actions">
           <button type="button" class="btn btn-sm" :class="isSaved(o) ? 'btn-primary' : 'btn-outline-primary'"
@@ -172,6 +194,7 @@ function generatorPage() {
   return {
     opts: {}, hasUser: false, loading: false, busy: false, result: null,
     cleanItems: [], itemsById: {}, savedByFp: {},
+    lockedAnchor: false, anchorItem: null, anchorDirty: false,
     weatherMode: "manual", geoStatus: "",
     req: {
       user_id: null, occasion: "", time_of_day: "", dress_code: "",
@@ -188,8 +211,21 @@ function generatorPage() {
       const items = await WA.get(`/api/wardrobe?user_id=${uid}`);
       this.itemsById = Object.fromEntries(items.map((i) => [i.id, i]));
       this.cleanItems = items.filter((i) => i.laundry_status === "Clean");
+      const itemId = parseInt(new URLSearchParams(location.search).get("item_id"), 10);
+      if (itemId) {
+        this.req.favorite_item_id = itemId;
+        this.lockedAnchor = true;
+        this.anchorItem = this.itemsById[itemId] || null;
+        this.anchorDirty = !!(this.anchorItem && this.anchorItem.laundry_status !== "Clean");
+        if (!this.anchorItem) waToast("Item not found.", "error");
+        else if (this.anchorDirty) waToast("Mark this piece Clean to generate around it.", "error");
+      }
       await this.refreshSaved();
     },
+    colorDots(o) {
+      return outfitPieces(o).map((p) => p.primary_color).filter(Boolean);
+    },
+    colorToCss,
     async refreshSaved() {
       const rows = await WA.get(`/api/outfits/saved?user_id=${this.req.user_id}`);
       this.savedByFp = {};
@@ -256,6 +292,10 @@ function generatorPage() {
       );
     },
     async generate() {
+      if (this.lockedAnchor && this.anchorDirty) {
+        waToast("Mark this piece Clean to generate around it.", "error");
+        return;
+      }
       this.loading = true; this.result = null;
       try {
         const payload = { ...this.req };

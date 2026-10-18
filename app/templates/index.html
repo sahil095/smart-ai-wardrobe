@@ -61,6 +61,13 @@
         </div>
       </a>
 
+      <a href="/wardrobe" class="closet-mosaic" x-show="mosaic.length">
+        <template x-for="it in mosaic" :key="it.id">
+          <img :src="it.display_image_url || it.image_url" :alt="it.name"
+               @error="if (it.image_url && $event.target.src !== it.image_url) $event.target.src = it.image_url" />
+        </template>
+      </a>
+
       <a href="/gaps" class="card-soft mt-3 gaps-teaser">
         <div class="d-flex justify-content-between align-items-center">
           <div>
@@ -71,7 +78,7 @@
         </div>
       </a>
 
-      <div class="card-soft mt-3">
+      <div class="card-soft mt-3" x-show="stats.total === 0">
         <div class="section-title"><i class="bi bi-lightbulb"></i> How it works</div>
         <ol class="muted mb-0" style="padding-left:18px;">
           <li>Build your profile (body type, skin tone, style).</li>
@@ -94,6 +101,7 @@ function homePage() {
     greeting: "Your personal AI stylist.",
     stats: { total: 0, clean: 0 },
     recentWorn: [],
+    mosaic: [],
     gapTeaser: "See what's missing so more outfits become possible.",
     snapshotThumbs,
     async init() {
@@ -111,6 +119,7 @@ function homePage() {
         this.stats.total = items.length;
         this.stats.clean = items.filter((i) => i.laundry_status === "Clean").length;
         this.recentWorn = worn.slice(0, 3);
+        this.mosaic = items.filter((i) => i.display_image_url || i.image_url).slice(0, 4);
         const n = (gaps.cards || []).length;
         this.gapTeaser = n ? `${n} idea${n === 1 ? "" : "s"} to fill holes` : "See what's missing so more outfits become possible.";
       } catch (e) { waToast(e.message, "error"); }

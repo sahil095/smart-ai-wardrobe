@@ -28,6 +28,22 @@ OUTER_CATS = {"Outerwear"}
 ACCESSORY_CATS = {"Accessories"}
 
 
+def item_slot(item: WardrobeItem) -> str | None:
+    """Map a wardrobe category onto an outfit slot name."""
+    cat = item.category or ""
+    if cat in UPPER_CATS:
+        return "upper"
+    if cat in LOWER_CATS:
+        return "lower"
+    if cat in SHOE_CATS:
+        return "shoes"
+    if cat in OUTER_CATS:
+        return "outerwear"
+    if cat in ACCESSORY_CATS:
+        return "accessories"
+    return None
+
+
 def _item_to_dict(item: WardrobeItem) -> dict:
     return {
         "item_id": item.id,
@@ -132,6 +148,8 @@ def build_user_context(
         "user_profile": profile,
         "recently_worn_item_ids": request_ctx.get("recently_worn_item_ids") or [],
         "saved_outfits": request_ctx.get("saved_outfits") or [],
+        "favorite_item_id": request_ctx.get("favorite_item_id"),
+        "favorite_item": request_ctx.get("favorite_item"),
     }
 
 
@@ -175,6 +193,24 @@ def _validate_and_resolve(
     return resolved
 
 
+def _force_anchor(outfit: Outfit, anchor: WardrobeItem) -> Outfit:
+    """Pin the must-include item into the correct slot."""
+    piece = _to_piece(anchor)
+    slot = item_slot(anchor)
+    if slot == "upper":
+        outfit.upper = piece
+    elif slot == "lower":
+        outfit.lower = piece
+    elif slot == "shoes":
+        outfit.shoes = piece
+    elif slot == "outerwear":
+        outfit.outerwear = piece
+    elif slot == "accessories":
+        others = [a for a in (outfit.accessories or []) if a.item_id != anchor.id]
+        outfit.accessories = [piece, *others]
+    return outfit
+
+
 def _rule_based(
     candidates: list[WardrobeItem],
     count: int,
@@ -200,13 +236,23 @@ def _rule_based(
     outers = sorted([i for i in candidates if i.category in OUTER_CATS], key=sort_key)
     accs = sorted([i for i in candidates if i.category in ACCESSORY_CATS], key=sort_key)
 
+    anchor = next((i for i in candidates if favorite_item_id and i.id == favorite_item_id), None)
+    pin = item_slot(anchor) if anchor else None
+
     outfits: list[Outfit] = []
     for n in range(count):
-        upper = uppers[n % len(uppers)] if uppers else None
-        lower = lowers[n % len(lowers)] if lowers else None
-        shoe = shoes[n % len(shoes)] if shoes else None
-        outer = outers[n] if n < len(outers) else None
-        acc = [accs[n]] if n < len(accs) else (accs[:1] if accs else [])
+        upper = anchor if pin == "upper" else (uppers[n % len(uppers)] if uppers else None)
+        lower = anchor if pin == "lower" else (lowers[n % len(lowers)] if lowers else None)
+        shoe = anchor if pin == "shoes" else (shoes[n % len(shoes)] if shoes else None)
+        if pin == "outerwear":
+            outer = anchor
+        else:
+            outer = outers[n] if n < len(outers) else None
+        if pin == "accessories":
+            rest = [a for a in accs if a.id != anchor.id]
+            acc = [anchor] + ([rest[n]] if rest and n < len(rest) else rest[:1])
+        else:
+            acc = [accs[n]] if n < len(accs) else (accs[:1] if accs else [])
 
         if not upper and not lower:
             break
@@ -249,13 +295,32 @@ def generate(
     count = settings.outfit_count
     bucket = (weather or {}).get("bucket")
     occasion = request_ctx.get("occasion")
+    ctx = dict(request_ctx)
 
     candidates = build_candidates(items, bucket, occasion)
     if not candidates:
         return [], False, "No clean wardrobe items available. Add items or mark some as Clean."
 
+    fav_id = ctx.get("favorite_item_id")
+    anchor: WardrobeItem | None = None
+    if fav_id:
+        owned = next((i for i in items if i.id == fav_id), None)
+        if not owned:
+            return [], False, "That item is not in this wardrobe."
+        if (owned.laundry_status or "").strip() != CLEAN_STATUS:
+            return [], False, "The anchored item is not Clean. Mark it Clean to complete the look."
+        if owned.id not in {c.id for c in candidates}:
+            candidates = [owned, *candidates]
+        anchor = owned
+        ctx["favorite_item"] = {
+            "item_id": owned.id,
+            "name": owned.name,
+            "category": owned.category,
+            "slot": item_slot(owned),
+        }
+
     by_id = {i.id: i for i in candidates}
-    context = build_user_context(user, weather, request_ctx)
+    context = build_user_context(user, weather, ctx)
 
     # Try Groq first (if configured).
     ai_note: str | None = None
@@ -265,6 +330,8 @@ def generate(
             raw = groq_service.generate_outfits(context, candidate_dicts, count)
             resolved = _validate_and_resolve(raw, by_id)
             if resolved:
+                if anchor:
+                    resolved = [_force_anchor(o, anchor) for o in resolved]
                 return resolved[:count], True, None
             logger.warning("Groq returned no usable outfits; using rule-based fallback.")
             ai_note = (
@@ -281,9 +348,8 @@ def generate(
     else:
         ai_note = "Groq API key not configured — using built-in rule-based stylist."
 
-    recent = set(request_ctx.get("recently_worn_item_ids") or [])
-    return (
-        _rule_based(candidates, count, request_ctx.get("favorite_item_id"), recent),
-        False,
-        ai_note,
-    )
+    recent = set(ctx.get("recently_worn_item_ids") or [])
+    fallback = _rule_based(candidates, count, ctx.get("favorite_item_id"), recent)
+    if anchor:
+        fallback = [_force_anchor(o, anchor) for o in fallback]
+    return fallback, False, ai_note

@@ -7,7 +7,7 @@
 
   <template x-if="!hasUser">
     <div class="card-soft empty-state">
-      <i class="bi bi-person-x"></i>
+      {% include "_hanger.html" %}
       <p>Create a profile first.</p>
       <a href="/profile" class="btn btn-primary">Go to Profile</a>
     </div>
@@ -27,7 +27,7 @@
     <div x-show="!loading && tab === 'generated'">
       <template x-if="entries.length === 0">
         <div class="empty-state">
-          <i class="bi bi-clock"></i>
+          {% include "_hanger.html" %}
           <p>No outfits generated yet.</p>
           <a href="/generator" class="btn btn-primary"><i class="bi bi-stars"></i> Generate an outfit</a>
         </div>
@@ -81,7 +81,7 @@
     <div x-show="!loading && tab === 'saved'">
       <template x-if="saved.length === 0">
         <div class="empty-state">
-          <i class="bi bi-star"></i>
+          {% include "_hanger.html" %}
           <p>Star an outfit on the generator to save it.</p>
         </div>
       </template>
@@ -114,7 +114,7 @@
     <div x-show="!loading && tab === 'worn'">
       <template x-if="worn.length === 0">
         <div class="empty-state">
-          <i class="bi bi-check2-circle"></i>
+          {% include "_hanger.html" %}
           <p>Tap “I wore this” after you get dressed.</p>
         </div>
       </template>
