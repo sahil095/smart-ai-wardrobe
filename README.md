@@ -106,8 +106,10 @@ docs/
    copy .env.example .env
    ```
 
-   Then open `.env` and set `GROQ_API_KEY=...`. Everything else has working
-   defaults (SQLite database, Open-Meteo weather, local image storage).
+   Then open `.env` and set `GROQ_API_KEY=...`. The project `.env` is preferred
+   over a leftover Windows User/System `GROQ_API_KEY` (restart uvicorn after
+   changing `.env`). Everything else has working defaults (SQLite database,
+   Open-Meteo weather, local image storage).
 
 5. (Optional) seed a demo profile with clean items so you can test right away:
 

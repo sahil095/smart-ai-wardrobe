@@ -51,8 +51,9 @@
           <template x-for="row in recentWorn" :key="row.id">
             <div class="worn-tile">
               <div class="d-flex gap-1">
-                <template x-for="p in snapshotThumbs(row.snapshot).slice(0,3)" :key="p.item_id">
-                  <img :src="p.display_image_url || p.image_url" :alt="p.name" />
+                <template x-for="p in (row.snapshot || []).slice(0, 3)" :key="p.item_id">
+                  <img :src="p.display_image_url || p.image_url || WA_PLACEHOLDER"
+                       :data-orig="p.image_url || ''" :alt="p.name" @error="waOnImgError($event)" />
                 </template>
               </div>
               <small x-text="fmtWorn(row.worn_at)"></small>
@@ -63,8 +64,8 @@
 
       <a href="/wardrobe" class="closet-mosaic" x-show="mosaic.length">
         <template x-for="it in mosaic" :key="it.id">
-          <img :src="it.display_image_url || it.image_url" :alt="it.name"
-               @error="if (it.image_url && $event.target.src !== it.image_url) $event.target.src = it.image_url" />
+          <img :src="it.display_image_url || it.image_url || WA_PLACEHOLDER" :alt="it.name"
+               :data-orig="it.image_url || ''" @error="waOnImgError($event)" />
         </template>
       </a>
 

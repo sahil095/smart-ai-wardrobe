@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -122,6 +122,14 @@ def list_history(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
     return db.scalars(stmt).all()
 
 
+@router.delete("/history", status_code=204)
+def delete_all_history(user_id: int, db: Session = Depends(get_db)):
+    if not db.get(User, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    db.execute(delete(OutfitHistory).where(OutfitHistory.user_id == user_id))
+    db.commit()
+
+
 @router.delete("/history/{history_id}", status_code=204)
 def delete_history(history_id: int, db: Session = Depends(get_db)):
     row = db.get(OutfitHistory, history_id)
@@ -186,6 +194,20 @@ def list_worn(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
         .order_by(WearEvent.worn_at.desc())
         .limit(limit)
     ).all()
+
+
+@router.delete("/worn", status_code=204)
+def delete_all_worn(user_id: int, db: Session = Depends(get_db)):
+    """Wipe the wear log and last_worn_at so recency no longer steers generate."""
+    if not db.get(User, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    db.execute(delete(WearEvent).where(WearEvent.user_id == user_id))
+    items = db.scalars(
+        select(WardrobeItem).where(WardrobeItem.user_id == user_id)
+    ).all()
+    for it in items:
+        it.last_worn_at = None
+    db.commit()
 
 
 @router.post("/wear", response_model=WearEventOut)

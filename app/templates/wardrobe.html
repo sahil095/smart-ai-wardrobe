@@ -71,7 +71,7 @@
         <div class="item-card" @click="location.href = '/add?id=' + it.id">
           <template x-if="it.display_image_url || it.image_url">
             <img class="item-thumb" :src="it.display_image_url || it.image_url" :alt="it.name"
-                 @error="if (it.image_url && $event.target.src !== it.image_url) $event.target.src = it.image_url" />
+                 :data-orig="it.image_url || ''" @error="waOnImgError($event)" />
           </template>
           <template x-if="!(it.display_image_url || it.image_url)">
             <div class="item-thumb placeholder"><i class="bi bi-image"></i></div>

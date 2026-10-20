@@ -18,7 +18,8 @@
     <template x-if="lockedAnchor && anchorItem">
       <div class="anchor-banner card-soft">
         <template x-if="anchorItem.display_image_url || anchorItem.image_url">
-          <img :src="anchorItem.display_image_url || anchorItem.image_url" :alt="anchorItem.name" />
+          <img :src="anchorItem.display_image_url || anchorItem.image_url || WA_PLACEHOLDER"
+               :data-orig="anchorItem.image_url || ''" :alt="anchorItem.name" @error="waOnImgError($event)" />
         </template>
         <div class="flex-grow-1">
           <div class="section-title mb-1">Complete the look: <span x-text="anchorItem.name"></span></div>
@@ -147,7 +148,7 @@
             <div class="piece">
               <template x-if="slot.piece && (slot.piece.display_image_url || slot.piece.image_url)">
                 <img :src="slot.piece.display_image_url || slot.piece.image_url" :alt="slot.piece.name"
-                     @error="if (slot.piece.image_url && $event.target.src !== slot.piece.image_url) $event.target.src = slot.piece.image_url" />
+                     :data-orig="slot.piece.image_url || ''" @error="waOnImgError($event)" />
               </template>
               <template x-if="slot.piece && !(slot.piece.display_image_url || slot.piece.image_url)">
                 <div class="ph"><i class="bi bi-image"></i></div>

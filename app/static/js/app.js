@@ -1,5 +1,20 @@
 /* Wardrobe AI — shared frontend logic (vanilla + Alpine component factories) */
 
+const WA_PLACEHOLDER = "/static/icons/item-placeholder.svg";
+
+function waOnImgError(ev) {
+  const el = ev && ev.target;
+  if (!el || el.dataset.ph === "1") return;
+  const orig = el.getAttribute("data-orig") || "";
+  const current = el.getAttribute("src") || "";
+  if (orig && current !== orig && !current.endsWith("item-placeholder.svg")) {
+    el.src = orig;
+    return;
+  }
+  el.dataset.ph = "1";
+  el.src = WA_PLACEHOLDER;
+}
+
 const WA = {
   USER_KEY: "wa_current_user",
 
@@ -163,7 +178,7 @@ function fingerprintIds(ids) {
 }
 
 function snapshotThumbs(snapshot) {
-  return (snapshot || []).filter((p) => p.display_image_url || p.image_url);
+  return snapshot || [];
 }
 
 function snapshotNames(snapshot) {

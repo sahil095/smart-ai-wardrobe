@@ -25,6 +25,11 @@
 
     <!-- Generated -->
     <div x-show="!loading && tab === 'generated'">
+      <div class="d-flex justify-content-end mb-2" x-show="entries.length">
+        <button type="button" class="btn btn-sm btn-outline-danger" @click="clearGenerated()" :disabled="busy">
+          <i class="bi bi-trash"></i> Delete all
+        </button>
+      </div>
       <template x-if="entries.length === 0">
         <div class="empty-state">
           {% include "_hanger.html" %}
@@ -53,7 +58,8 @@
                   <div class="d-flex gap-1 flex-wrap">
                     <template x-for="p in pieces(o)" :key="p.item_id">
                       <template x-if="p.display_image_url || p.image_url">
-                        <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-sm" />
+                        <img :src="p.display_image_url || p.image_url" :data-orig="p.image_url || ''"
+                             :title="p.name" class="thumb-sm" @error="waOnImgError($event)" />
                       </template>
                     </template>
                   </div>
@@ -98,7 +104,8 @@
           </div>
           <div class="d-flex gap-1 flex-wrap mb-2">
             <template x-for="p in snapshotThumbs(row.snapshot)" :key="p.item_id">
-              <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-md" />
+              <img :src="p.display_image_url || p.image_url || WA_PLACEHOLDER" :data-orig="p.image_url || ''"
+                   :title="p.name" class="thumb-md" @error="waOnImgError($event)" />
             </template>
           </div>
           <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -112,6 +119,11 @@
 
     <!-- Worn -->
     <div x-show="!loading && tab === 'worn'">
+      <div class="d-flex justify-content-end mb-2" x-show="worn.length">
+        <button type="button" class="btn btn-sm btn-outline-danger" @click="clearWorn()" :disabled="busy">
+          <i class="bi bi-trash"></i> Delete all
+        </button>
+      </div>
       <template x-if="worn.length === 0">
         <div class="empty-state">
           {% include "_hanger.html" %}
@@ -126,7 +138,8 @@
           </div>
           <div class="d-flex gap-1 flex-wrap mb-2">
             <template x-for="p in snapshotThumbs(row.snapshot)" :key="p.item_id">
-              <img :src="p.display_image_url || p.image_url" :title="p.name" class="thumb-md" />
+              <img :src="p.display_image_url || p.image_url || WA_PLACEHOLDER" :data-orig="p.image_url || ''"
+                   :title="p.name" class="thumb-md" @error="waOnImgError($event)" />
             </template>
           </div>
           <button type="button" class="btn btn-sm btn-outline-secondary" @click="laundrySet(row.item_ids)" :disabled="busy">
@@ -264,6 +277,36 @@ function historyPage() {
         this.entries = this.entries.filter((e) => e.id !== id);
         waToast("Deleted", "success");
       } catch (e) { waToast(e.message, "error"); }
+    },
+    async clearGenerated() {
+      const ok = await waConfirm({
+        title: "Delete all generated history?",
+        message: "This removes every generated-outfit session. Saved and worn logs are not touched. This cannot be undone.",
+        confirmLabel: "Delete all",
+      });
+      if (!ok) return;
+      this.busy = true;
+      try {
+        await WA.del(`/api/outfits/history?user_id=${this.userId}`);
+        this.entries = [];
+        waToast("Generated history cleared", "success");
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
+    },
+    async clearWorn() {
+      const ok = await waConfirm({
+        title: "Delete all worn history?",
+        message: "This clears every “I wore this” log and resets last-worn dates, so old pieces stop steering generate. This cannot be undone.",
+        confirmLabel: "Delete all",
+      });
+      if (!ok) return;
+      this.busy = true;
+      try {
+        await WA.del(`/api/outfits/worn?user_id=${this.userId}`);
+        this.worn = [];
+        waToast("Worn history cleared", "success");
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.busy = false; }
     },
   };
 }

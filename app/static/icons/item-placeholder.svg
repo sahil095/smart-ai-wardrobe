@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Missing photo">
+  <rect width="256" height="256" rx="28" fill="#EFE8DE"/>
+  <g fill="none" stroke="#A8A29E" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 78 L128 58"/>
+    <circle cx="116" cy="56" r="10"/>
+    <path d="M128 78 L74 128 Q128 142 182 128 L128 78 Z"/>
+    <path d="M86 148 h84 l-8 36 H94 Z"/>
+  </g>
+</svg>
