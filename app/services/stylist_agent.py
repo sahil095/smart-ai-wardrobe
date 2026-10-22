@@ -12,6 +12,8 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from groq import BadRequestError
+
 from app.config import settings
 from app.models import SavedOutfit, User, WardrobeItem, WearEvent
 from app.services import (
@@ -70,6 +72,21 @@ _FILLER = re.compile(
     re.I,
 )
 
+def _optional_string(description: str | None = None) -> dict:
+    """Groq rejects a tool call when the model sends null for a string field."""
+    schema: dict = {"type": ["string", "null"]}
+    if description:
+        schema["description"] = description
+    return schema
+
+
+def _optional_int(description: str | None = None) -> dict:
+    schema: dict = {"type": ["integer", "null"]}
+    if description:
+        schema["description"] = description
+    return schema
+
+
 TOOLS = [
     {
         "type": "function",
@@ -78,7 +95,9 @@ TOOLS = [
             "description": "Current weather for a city.",
             "parameters": {
                 "type": "object",
-                "properties": {"location": {"type": "string"}},
+                "properties": {
+                    "location": _optional_string("City name. Omit when unknown."),
+                },
                 "required": ["location"],
             },
         },
@@ -91,9 +110,9 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "category": {"type": "string"},
-                    "color": {"type": "string"},
-                    "occasion": {"type": "string"},
+                    "category": _optional_string(),
+                    "color": _optional_string(),
+                    "occasion": _optional_string(),
                 },
             },
         },
@@ -106,13 +125,14 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "occasion": {"type": "string"},
-                    "location": {"type": "string", "description": "City for weather"},
-                    "favorite_item_id": {
-                        "type": "integer",
-                        "description": "Must-include item id from list_closet",
-                    },
-                    "color_preference": {"type": "string"},
+                    "occasion": _optional_string("Occasion such as office. Omit if unknown."),
+                    "location": _optional_string(
+                        "City for weather. Omit when the user did not name a city."
+                    ),
+                    "favorite_item_id": _optional_int(
+                        "Must-include item id from list_closet. Omit when not needed."
+                    ),
+                    "color_preference": _optional_string(),
                 },
             },
         },
@@ -148,7 +168,7 @@ TOOLS = [
             "description": "Store one durable style preference the user just stated.",
             "parameters": {
                 "type": "object",
-                "properties": {"text": {"type": "string"}},
+                "properties": {"text": _optional_string()},
                 "required": ["text"],
             },
         },
@@ -166,11 +186,8 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "item_id": {"type": "integer"},
-                    "query": {
-                        "type": "string",
-                        "description": "e.g. white hoodie outfit",
-                    },
+                    "item_id": _optional_int(),
+                    "query": _optional_string("e.g. white hoodie outfit"),
                 },
             },
         },
@@ -433,6 +450,41 @@ def _best_item(items: list[WardrobeItem], text: str) -> WardrobeItem | None:
     return best if score >= 3 else None
 
 
+def _clean_args(raw) -> dict:
+    if isinstance(raw, dict):
+        args = raw
+    else:
+        try:
+            args = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            args = {}
+    if not isinstance(args, dict):
+        return {}
+    return {key: value for key, value in args.items() if value is not None}
+
+
+def _failed_generation(exc: BadRequestError) -> dict | None:
+    """Groq 400s include the rejected tool call. Recover it instead of failing the chat."""
+    body = exc.body
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(body, dict):
+        return None
+    error = body.get("error") if isinstance(body.get("error"), dict) else {}
+    failed = error.get("failed_generation")
+    if isinstance(failed, str):
+        try:
+            failed = json.loads(failed)
+        except json.JSONDecodeError:
+            return None
+    if isinstance(failed, dict) and failed.get("name"):
+        return failed
+    return None
+
+
 def _tool_message(call, payload: dict) -> dict:
     return {
         "role": "tool",
@@ -493,14 +545,48 @@ async def reply(db: Session, user: User, history: list[dict], user_text: str) ->
 
     client = groq_service._get_client()
     final = ""
-    for _ in range(MAX_ROUNDS):
-        completion = client.chat.completions.create(
-            model=settings.groq_model,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.4,
-        )
+    for round_index in range(MAX_ROUNDS):
+        try:
+            completion = client.chat.completions.create(
+                model=settings.groq_model,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0.4,
+            )
+        except BadRequestError as exc:
+            failed = _failed_generation(exc)
+            if not failed:
+                raise
+            name = str(failed["name"])
+            args = _clean_args(failed.get("arguments") or {})
+            payload = await session.call(name, args)
+            call_id = f"call_recovered_{round_index}"
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": json.dumps(args),
+                            },
+                        }
+                    ],
+                }
+            )
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": name,
+                    "content": json.dumps(payload, ensure_ascii=False)[:6000],
+                }
+            )
+            continue
         msg = completion.choices[0].message
         calls = list(msg.tool_calls or [])
         if not calls:
@@ -524,17 +610,9 @@ async def reply(db: Session, user: User, history: list[dict], user_text: str) ->
             }
         )
         for call in calls:
-            raw = call.function.arguments or "{}"
-            if isinstance(raw, dict):
-                args = raw
-            else:
-                try:
-                    args = json.loads(raw)
-                except json.JSONDecodeError:
-                    args = {}
-            if not isinstance(args, dict):
-                args = {}
-            payload = await session.call(call.function.name, args)
+            payload = await session.call(
+                call.function.name, _clean_args(call.function.arguments or "{}")
+            )
             messages.append(_tool_message(call, payload))
     else:
         final = final or "I couldn't finish that. Try a shorter question."
