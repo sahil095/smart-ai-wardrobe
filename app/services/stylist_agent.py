@@ -494,22 +494,35 @@ def _tool_message(call, payload: dict) -> dict:
     }
 
 
+def _item_phrase(item: WardrobeItem | None, query: str = "") -> str:
+    """Short name for the Pinterest line, such as White Sneakers."""
+    if item:
+        color = (item.primary_color or "").strip()
+        kind = (item.subcategory or item.category or "").strip()
+        if color and kind:
+            return f"{color} {kind}"[:80]
+        named = (item.name or kind or "this piece").strip()
+        return named[:80]
+    text = re.sub(r"\s+outfit$", "", (query or "").strip(), flags=re.I)
+    return text or "this piece"
+
+
 async def _inspiration_reply(session: StylistSession, user_text: str) -> dict:
-    """Photos and a Pinterest search. Does not build a closet outfit."""
+    """A Pinterest search for the piece. Does not build a closet outfit."""
     items = await session._items()
     item = _best_item(items, user_text)
     if item:
         await session._ideas({"item_id": item.id})
     elif not session.ideas:
         await session._ideas({"query": _query_from_text(user_text)})
-    query = (session.ideas or {}).get("query") or "that piece"
+    ideas = dict(session.ideas or {})
+    label = _item_phrase(item, ideas.get("query") or "")
+    ideas["label"] = label
+    session.ideas = ideas
     return {
-        "content": (
-            f"Similar looks for {query}. These are not your clothes. "
-            "Open More on Pinterest for the full board."
-        ),
+        "content": f'Find styles for your "{label}" on Pinterest.',
         "outfits": [],
-        "ideas": session.ideas,
+        "ideas": ideas,
     }
 
 
