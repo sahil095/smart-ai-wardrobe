@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # Wardrobe gap analysis cache
     gap_cache_hours: int = 24
 
+    # Pexels inspiration search (optional). Style ideas still open Pinterest without it.
+    pexels_api_key: str = ""
+
     @field_validator(
         "groq_api_key",
         "groq_model",
@@ -65,6 +68,7 @@ class Settings(BaseSettings):
         "cloudinary_api_secret",
         "image_bg_color",
         "image_aspect",
+        "pexels_api_key",
         mode="before",
     )
     @classmethod
@@ -86,6 +90,10 @@ class Settings(BaseSettings):
     @property
     def groq_enabled(self) -> bool:
         return bool(self.groq_api_key)
+
+    @property
+    def pexels_enabled(self) -> bool:
+        return bool(self.pexels_api_key)
 
 
 @lru_cache

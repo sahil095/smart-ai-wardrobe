@@ -1,7 +1,7 @@
 """Pydantic schemas for User."""
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -52,5 +52,11 @@ class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    style_memories: list = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("style_memories", mode="before")
+    @classmethod
+    def _memories(cls, value):
+        return value or []

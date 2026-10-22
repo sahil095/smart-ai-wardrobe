@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import attributes, meta, outfits, users, wardrobe, weather
+from app.api import attributes, meta, outfits, stylist, users, wardrobe, weather
 from app.config import settings
 from app.database import init_db
 
@@ -38,6 +38,7 @@ app.include_router(weather.router)
 app.include_router(outfits.router)
 app.include_router(meta.router)
 app.include_router(attributes.router)
+app.include_router(stylist.router)
 
 
 @app.get("/sw.js", include_in_schema=False)
@@ -65,6 +66,7 @@ def health():
         "status": "ok",
         "groq_enabled": settings.groq_enabled,
         "cloudinary_enabled": settings.cloudinary_enabled,
+        "pexels_enabled": settings.pexels_enabled,
         "outfit_count": settings.outfit_count,
     }
 
@@ -111,3 +113,13 @@ def history_page(request: Request):
 @app.get("/gaps", response_class=HTMLResponse)
 def gaps_page(request: Request):
     return _page(request, "gaps.html", active="home")
+
+
+@app.get("/stylist", response_class=HTMLResponse)
+def stylist_page(request: Request):
+    return _page(request, "stylist.html", active="home")
+
+
+@app.get("/ideas", response_class=HTMLResponse)
+def ideas_page(request: Request):
+    return _page(request, "ideas.html", active="wardrobe")

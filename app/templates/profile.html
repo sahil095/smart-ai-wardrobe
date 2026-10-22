@@ -132,6 +132,19 @@
     <label class="form-label mt-2">Notes</label>
     <textarea class="form-control" rows="2" x-model="form.notes"></textarea>
 
+    <template x-if="form.id && memories.length">
+      <div class="mt-3">
+        <div class="section-title">Style memory</div>
+        <p class="muted small">Preferences you told the stylist. Generate uses these too.</p>
+        <template x-for="(mem, idx) in memories" :key="idx">
+          <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+            <span x-text="mem.text"></span>
+            <button type="button" class="btn btn-sm btn-outline-danger" @click="forget(idx)">Delete</button>
+          </div>
+        </template>
+      </div>
+    </template>
+
     <div class="d-flex gap-2 mt-3">
       <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving">
         <span x-text="form.id ? 'Update' : 'Save'"></span>
@@ -157,7 +170,7 @@ function blankUser() {
 }
 function profilePage() {
   return {
-    opts: {}, users: [], selectedId: "", form: blankUser(), saving: false,
+    opts: {}, users: [], selectedId: "", form: blankUser(), memories: [], saving: false,
     toggleInArray,
     splitCsv(v) { return v.split(",").map(s => s.trim()).filter(Boolean); },
     async init() {
@@ -169,7 +182,7 @@ function profilePage() {
       }
     },
     async loadUsers() { this.users = await WA.get("/api/users"); },
-    newUser() { this.selectedId = ""; this.form = blankUser(); },
+    newUser() { this.selectedId = ""; this.form = blankUser(); this.memories = []; },
     async loadUser() {
       if (!this.selectedId) { this.newUser(); return; }
       const u = await WA.get(`/api/users/${this.selectedId}`);
@@ -177,12 +190,13 @@ function profilePage() {
       this.form.style = u.style || [];
       this.form.favorite_colors = u.favorite_colors || [];
       this.form.disliked_colors = u.disliked_colors || [];
+      this.memories = u.style_memories || [];
     },
     async save() {
       this.saving = true;
       try {
         const payload = { ...this.form };
-        delete payload.created_at; delete payload.updated_at;
+        delete payload.created_at; delete payload.updated_at; delete payload.style_memories;
         let saved;
         if (this.form.id) {
           saved = await WA.put(`/api/users/${this.form.id}`, payload);
@@ -210,6 +224,19 @@ function profilePage() {
         if (WA.getUserId() === this.form.id) WA.setUserId(null);
         waToast("Profile deleted", "success");
         setTimeout(() => location.reload(), 600);
+      } catch (e) { waToast(e.message, "error"); }
+    },
+    async forget(idx) {
+      const ok = await waConfirm({
+        title: "Forget this?",
+        message: "The stylist and generator will stop using this preference.",
+        confirmLabel: "Delete",
+      });
+      if (!ok) return;
+      try {
+        await WA.del(`/api/users/${this.form.id}/memories/${idx}`);
+        await this.loadUser();
+        waToast("Forgotten", "success");
       } catch (e) { waToast(e.message, "error"); }
     },
   };

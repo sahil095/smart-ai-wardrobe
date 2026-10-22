@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Style ideas{% endblock %}
+
+{% block content %}
+<div x-data="ideasPage()" x-init="init()">
+  <div class="section-title"><i class="bi bi-images"></i> Style ideas</div>
+  <p class="muted small">Similar looks for the kind of piece you own. Not your photo, and nothing to buy.</p>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state">
+      {% include "_hanger.html" %}
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
+
+  <template x-if="hasUser && !loading && result">
+    <div>
+      <p class="mb-1"><b x-text="result.query"></b></p>
+      <p class="small muted" x-text="result.caption"></p>
+      <p class="small" x-show="result.note" x-text="result.note"></p>
+      <div class="idea-grid mb-3">
+        <template x-for="(photo, i) in result.photos" :key="i">
+          <a :href="photo.source_url" target="_blank" rel="noopener">
+            <img :src="photo.image_url" :alt="photo.alt" @error="waOnImgError($event)" />
+          </a>
+        </template>
+      </div>
+      <p class="small muted" x-show="result.photos.length">Photos from Pexels.</p>
+      <a class="btn btn-outline-primary w-100" :href="result.pinterest_url" target="_blank" rel="noopener">
+        More on Pinterest
+      </a>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ideasPage() {
+  return {
+    hasUser: false, loading: false, result: null,
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      const params = new URLSearchParams(location.search);
+      const itemId = params.get("item_id");
+      const query = params.get("q") || "";
+      if (!itemId && !query) {
+        this.result = { query: "", photos: [], pinterest_url: "https://www.pinterest.com/search/pins/?q=outfit+ideas", caption: "Pick an item from your wardrobe.", note: "" };
+        return;
+      }
+      this.loading = true;
+      try {
+        const q = new URLSearchParams({ user_id: uid });
+        if (itemId) q.set("item_id", itemId);
+        if (query) q.set("query", query);
+        this.result = await WA.get(`/api/style-ideas?${q.toString()}`);
+      } catch (e) { waToast(e.message, "error"); }
+      finally { this.loading = false; }
+    },
+  };
+}
+</script>
+{% endblock %}

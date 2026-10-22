@@ -42,3 +42,6 @@ services:
       # Wardrobe gap analysis cache (hours; busts if wardrobe tags change)
       - key: GAP_CACHE_HOURS
         value: "24"
+      # Pexels (optional style-inspiration photos)
+      - key: PEXELS_API_KEY
+        sync: false

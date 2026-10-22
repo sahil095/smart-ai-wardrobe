@@ -81,6 +81,10 @@
             <span class="fav-badge"><i class="bi bi-star-fill"></i></span>
           </template>
           <div class="item-actions">
+            <button type="button" class="item-action ideas" title="Style ideas"
+                    @click.stop="location.href = '/ideas?item_id=' + it.id">
+              <i class="bi bi-images"></i>
+            </button>
             <button type="button" class="item-action complete" title="Complete the look"
                     @click.stop="location.href = '/generator?item_id=' + it.id">
               <i class="bi bi-magic"></i>

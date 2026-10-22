@@ -29,8 +29,10 @@ per run.
   pieces stop steering generate.
 - **Gaps:** `/gaps` names missing staples from your tags (category, color,
   season, occasion). Cached 24 hours unless the wardrobe changes. No shop links.
-- **PWA:** add to a phone home screen. Bottom tabs: Home, Wardrobe, Add,
-  History, Profile.
+- **Stylist chat:** ask what to wear. The model can look up your closet, weather, wear log, saved looks, and gaps, then generate owned outfits. Say a lasting preference (“no skinny jeans”) and it is remembered.
+- **Style ideas:** from a wardrobe item, see similar outfit photos (Pexels, if configured) plus a Pinterest search. Those pictures are not your garment and are not for sale.
+- **Style memory:** stated preferences show on Profile (delete any time) and are included the next time outfits are generated.
+- **PWA:** add to a phone home screen. Bottom tabs: Home, Wardrobe, Add, History, Profile. The stylist is opened from Home.
 
 ## Tech stack
 
@@ -195,6 +197,7 @@ DATABASE_URL=mysql+pymysql://user:password@localhost:3306/wardrobe_ai
 | `IMAGE_BG_COLOR` | Standardized background (hex, no `#`) | `F5F6F8` |
 | `IMAGE_ASPECT` | Standardized aspect ratio | `1:1` |
 | `GAP_CACHE_HOURS` | Reuse a gaps analysis this long | `24` |
+| `PEXELS_API_KEY` | In-app style-inspiration photos (optional) | *(empty → Pinterest link only)* |
 
 **Cloudinary (optional, recommended for phones / hosting):** enable
 **AI Background Removal** on the account. Set `STANDARDIZE_IMAGES=false` to

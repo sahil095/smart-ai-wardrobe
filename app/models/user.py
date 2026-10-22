@@ -29,6 +29,8 @@ class User(Base):
     disliked_colors: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     default_shoe_size: Mapped[str | None] = mapped_column(String(40), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Stated taste, e.g. [{"text", "source", "created_at"}]. Cap 20 in the service.
+    style_memories: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

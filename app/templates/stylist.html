@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe AI — Stylist{% endblock %}
+
+{% block content %}
+<div x-data="stylistPage()" x-init="init()">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div>
+      <div class="section-title mb-1"><i class="bi bi-chat-heart"></i> Stylist</div>
+      <p class="muted small mb-0">Ask what to wear, or how to style something you own. Inspiration photos are not your clothes.</p>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @click="fresh()" :disabled="busy || !messages.length">New chat</button>
+  </div>
+
+  <template x-if="!hasUser">
+    <div class="card-soft empty-state mt-3">
+      {% include "_hanger.html" %}
+      <p>Create a profile first.</p>
+      <a href="/profile" class="btn btn-primary">Go to Profile</a>
+    </div>
+  </template>
+
+  <template x-if="hasUser">
+    <div class="mt-3">
+      <div class="chat-log" x-ref="log">
+        <template x-if="!messages.length">
+          <div>
+            <p class="muted small">Closet questions build outfits from your clothes. Style questions open inspiration and Pinterest.</p>
+            <div class="d-flex flex-column gap-2 mt-2">
+              <template x-for="prompt in examples" :key="prompt">
+                <button type="button" class="btn btn-outline-secondary text-start prompt-chip"
+                        @click="ask(prompt)" x-text="prompt"></button>
+              </template>
+            </div>
+          </div>
+        </template>
+        <template x-for="msg in messages" :key="msg.id">
+          <div class="bubble" :class="msg.role">
+            <p class="mb-0" x-text="msg.content"></p>
+            <template x-if="msg.extras && msg.extras.outfits && msg.extras.outfits.length">
+              <div class="mt-2">
+                <template x-for="(o, idx) in msg.extras.outfits" :key="idx">
+                  <div class="hist-look mb-2">
+                    <div class="small fw-bold mb-1">Look <span x-text="idx + 1"></span></div>
+                    <div class="look-pieces">
+                      <template x-for="p in outfitPieces(o)" :key="p.item_id">
+                        <figure class="look-piece">
+                          <img :src="p.display_image_url || p.image_url || WA_PLACEHOLDER"
+                               :data-orig="p.image_url || ''" :alt="p.name" class="look-piece-img"
+                               @error="waOnImgError($event)" />
+                          <figcaption x-text="p.name"></figcaption>
+                        </figure>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="msg.extras && msg.extras.ideas">
+              <div class="mt-2">
+                <p class="small muted mb-1">Similar looks. Not your photo.</p>
+                <p class="small mb-2" x-show="!(msg.extras.ideas.photos || []).length && msg.extras.ideas.note" x-text="msg.extras.ideas.note"></p>
+                <div class="idea-grid">
+                  <template x-for="(photo, i) in (msg.extras.ideas.photos || [])" :key="i">
+                    <a :href="photo.source_url" target="_blank" rel="noopener">
+                      <img :src="photo.image_url" :alt="photo.alt" @error="waOnImgError($event)" />
+                    </a>
+                  </template>
+                </div>
+                <a class="btn btn-outline-primary w-100 mt-2" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
+                  More on Pinterest
+                </a>
+              </div>
+            </template>
+          </div>
+        </template>
+        <p class="muted small" x-show="busy">Thinking…</p>
+      </div>
+
+      <form class="chat-compose" @submit.prevent="send()">
+        <input class="form-control" x-model="draft" placeholder="Ask your stylist" :disabled="busy" />
+        <button class="btn btn-primary" type="submit" :disabled="busy || !draft.trim()">Send</button>
+      </form>
+    </div>
+  </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function stylistPage() {
+  return {
+    hasUser: false, userId: null, messages: [], draft: "", busy: false,
+    examples: [
+      "What should I wear to the office?",
+      "Show Pinterest looks for my white hoodie",
+      "How do people style white sneakers?",
+      "Remember that I avoid bright red",
+    ],
+    async init() {
+      const uid = WA.getUserId();
+      this.hasUser = !!uid;
+      if (!uid) return;
+      this.userId = uid;
+      try { this.messages = await WA.get(`/api/stylist/messages?user_id=${uid}`); }
+      catch (e) { waToast(e.message, "error"); }
+      this.$nextTick(() => this.scroll());
+    },
+    scroll() {
+      const el = this.$refs.log;
+      if (el) el.scrollTop = el.scrollHeight;
+    },
+    ask(text) {
+      if (this.busy) return;
+      this.draft = text;
+      this.send();
+    },
+    async send() {
+      const text = this.draft.trim();
+      if (!text) return;
+      this.busy = true;
+      this.draft = "";
+      this.messages.push({ id: "pending", role: "user", content: text, extras: {} });
+      this.$nextTick(() => this.scroll());
+      try {
+        const reply = await WA.post("/api/stylist/chat", { user_id: this.userId, message: text });
+        this.messages = await WA.get(`/api/stylist/messages?user_id=${this.userId}`);
+        if (!reply) {}
+      } catch (e) {
+        this.messages = this.messages.filter((m) => m.id !== "pending");
+        waToast(e.message, "error");
+      } finally {
+        this.busy = false;
+        this.$nextTick(() => this.scroll());
+      }
+    },
+    async fresh() {
+      const ok = await waConfirm({
+        title: "Start a new chat?",
+        message: "This clears the conversation. Saved style memories on your profile stay.",
+        confirmLabel: "New chat",
+        danger: false,
+      });
+      if (!ok) return;
+      try {
+        await WA.del(`/api/stylist/messages?user_id=${this.userId}`);
+        this.messages = [];
+      } catch (e) { waToast(e.message, "error"); }
+    },
+  };
+}
+</script>
+{% endblock %}

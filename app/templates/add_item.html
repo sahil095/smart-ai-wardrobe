@@ -192,6 +192,11 @@
       <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving" x-text="form.id ? 'Update' : 'Save item'"></button>
       <button type="button" class="btn btn-outline-secondary" @click="cancel()" :disabled="saving">Cancel</button>
       <template x-if="form.id">
+        <button type="button" class="btn btn-outline-primary" @click="styleIdeas()" :disabled="saving">
+          <i class="bi bi-images"></i> Style ideas
+        </button>
+      </template>
+      <template x-if="form.id">
         <button type="button" class="btn btn-outline-primary" @click="completeLook()" :disabled="saving">
           <i class="bi bi-magic"></i> Complete the look
         </button>
@@ -273,6 +278,10 @@ function itemForm() {
     completeLook() {
       if (!this.form.id) return;
       location.href = "/generator?item_id=" + this.form.id;
+    },
+    styleIdeas() {
+      if (!this.form.id) return;
+      location.href = "/ideas?item_id=" + this.form.id;
     },
     async save() {
       this.saving = true;

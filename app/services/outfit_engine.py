@@ -137,6 +137,11 @@ def build_user_context(
             "style": user.style or [],
             "favorite_colors": user.favorite_colors or [],
             "disliked_colors": user.disliked_colors or [],
+            "style_memories": [
+                m.get("text")
+                for m in (user.style_memories or [])
+                if isinstance(m, dict) and m.get("text")
+            ][:20],
         }
     return {
         "weather": weather or {},

@@ -63,6 +63,9 @@ _ADDED_COLUMNS = {
         ("attributes", "JSON"),
         ("last_worn_at", "TIMESTAMP"),
     ],
+    "users": [
+        ("style_memories", "JSON"),
+    ],
 }
 
 

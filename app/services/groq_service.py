@@ -33,6 +33,7 @@ SYSTEM_PROMPT = (
     "4) Skin tone 5) Body type 6) User preferences 7) Wear frequency.\n"
     "- Prefer items that were NOT recently worn (see recently_worn_item_ids). "
     "Do not repeat yesterday's exact item set.\n"
+    "- Respect style_memories in the user profile (stated likes and dislikes).\n"
     "- You MAY echo a saved favorite outfit if it still fits weather/occasion "
     "and those items are in the candidate list.\n"
     "- If CONTEXT.favorite_item is set, EVERY outfit MUST use that item_id in "
