@@ -34,6 +34,7 @@
         <template x-for="l in opts.laundry_statuses"><option x-text="l"></option></template>
       </select>
       <button class="btn btn-sm" :class="filters.favorites_only ? 'btn-warning' : 'btn-outline-secondary'"
+              title="Show favorite items only"
               style="white-space:nowrap;" @click="filters.favorites_only = !filters.favorites_only; load()">
         <i class="bi bi-star-fill"></i> Favorites
       </button>
@@ -53,7 +54,7 @@
 
     <div class="d-flex justify-content-between align-items-center mb-2">
       <small class="muted" x-text="items.length + ' items'"></small>
-      <button class="btn btn-sm btn-outline-secondary" @click="resetFilters()" x-show="hasActiveFilters()">Clear filters</button>
+      <button class="btn btn-sm btn-outline-secondary" title="Clear filters" @click="resetFilters()" x-show="hasActiveFilters()">Clear filters</button>
     </div>
 
     <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
@@ -78,7 +79,7 @@
           </template>
           <span class="laundry-badge" :class="{clean: it.laundry_status === 'Clean'}" x-text="it.laundry_status"></span>
           <template x-if="it.favorite">
-            <span class="fav-badge"><i class="bi bi-star-fill"></i></span>
+            <span class="fav-badge" title="Favorite"><i class="bi bi-star-fill"></i></span>
           </template>
           <div class="item-actions">
             <button type="button" class="item-action ideas" title="Style ideas"

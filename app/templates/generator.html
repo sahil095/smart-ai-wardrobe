@@ -92,7 +92,7 @@
 
       <template x-if="weatherMode === 'auto'">
         <div class="d-flex gap-2 align-items-center mb-2">
-          <button type="button" class="btn btn-sm btn-outline-secondary" @click="detectLocation()">
+          <button type="button" class="btn btn-sm btn-outline-secondary" title="Use your current location" @click="detectLocation()">
             <i class="bi bi-geo-alt"></i> Detect
           </button>
           <small class="muted" x-text="geoStatus"></small>
@@ -113,7 +113,7 @@
         </div>
       </template>
 
-      <button type="submit" class="btn btn-gradient w-100" :disabled="loading || anchorDirty">
+      <button type="submit" class="btn btn-gradient w-100" title="Generate outfits from your clean clothes" :disabled="loading || anchorDirty">
         <span x-show="!loading"><i class="bi bi-magic"></i> Generate {{ outfit_count }} outfits</span>
         <span x-show="loading"><span class="spinner-border spinner-border-sm"></span> Styling…</span>
       </button>
@@ -173,11 +173,12 @@
         </div>
         <div class="outfit-actions">
           <button type="button" class="btn btn-sm" :class="isSaved(o) ? 'btn-primary' : 'btn-outline-primary'"
+                  :title="isSaved(o) ? 'Remove this saved look' : 'Save this look'"
                   @click="toggleStar(o)" :disabled="busy">
             <i class="bi" :class="isSaved(o) ? 'bi-star-fill' : 'bi-star'"></i>
             <span x-text="isSaved(o) ? 'Saved' : 'Save'"></span>
           </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" @click="wear(o)"
+          <button type="button" class="btn btn-sm btn-outline-secondary" title="Log that you wore this outfit" @click="wear(o)"
                   :disabled="busy || !canWear(outfitItemIds(o))">
             <i class="bi bi-check2-circle"></i> I wore this
           </button>

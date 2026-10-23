@@ -27,7 +27,7 @@
         <input class="form-control" x-model="claimName" autocomplete="username" required />
         <label class="form-label mt-2">Password</label>
         <input class="form-control" type="password" x-model="claimPassword" autocomplete="new-password" required />
-        <button class="btn btn-primary w-100 mt-3" type="submit" :disabled="busy">Save and sign in</button>
+        <button class="btn btn-primary w-100 mt-3" type="submit" title="Save this login and open your wardrobe" :disabled="busy">Save and sign in</button>
       </form>
     </template>
 
@@ -37,7 +37,7 @@
       <input class="form-control" x-model="username" autocomplete="username" required />
       <label class="form-label mt-2">Password</label>
       <input class="form-control" type="password" x-model="password" autocomplete="current-password" required />
-      <button class="btn btn-primary w-100 mt-3" type="submit" :disabled="busy">Sign in</button>
+      <button class="btn btn-primary w-100 mt-3" type="submit" title="Sign in" :disabled="busy">Sign in</button>
     </form>
 
     <form class="login-block" @submit.prevent="register()">
@@ -49,7 +49,7 @@
       <input class="form-control" x-model="regUser" autocomplete="username" required />
       <label class="form-label mt-2">Password</label>
       <input class="form-control" type="password" x-model="regPassword" autocomplete="new-password" required />
-      <button class="btn btn-outline-primary w-100 mt-3" type="submit" :disabled="busy">Create account</button>
+      <button class="btn btn-outline-primary w-100 mt-3" type="submit" title="Create a new empty wardrobe" :disabled="busy">Create account</button>
     </form>
   </main>
   <script>

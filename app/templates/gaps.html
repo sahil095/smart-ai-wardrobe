@@ -8,7 +8,7 @@
       <div class="section-title mb-1"><i class="bi bi-diagram-3"></i> Wardrobe gaps</div>
       <p class="muted small mb-0">Missing staples and color holes, based on the tags you already store. No shop links.</p>
     </div>
-    <button type="button" class="btn btn-sm btn-outline-primary" @click="load(true)" :disabled="loading || !hasUser">
+    <button type="button" class="btn btn-sm btn-outline-primary" title="Run the gap check again" @click="load(true)" :disabled="loading || !hasUser">
       <i class="bi bi-arrow-repeat"></i> Refresh analysis
     </button>
   </div>

@@ -35,7 +35,7 @@
       </a>
       <div class="signed-in" x-show="me">
         <span x-text="me.nickname || me.name"></span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="signOut()">Sign out</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Sign out of this account" @click="signOut()">Sign out</button>
       </div>
     </div>
   </header>
@@ -46,19 +46,19 @@
 
   <!-- Bottom tab bar -->
   <nav class="tab-bar">
-    <a href="/" class="tab {% if active == 'home' %}active{% endif %}">
+    <a href="/" class="tab {% if active == 'home' %}active{% endif %}" title="Home">
       <i class="bi bi-house-door"></i><span>Home</span>
     </a>
-    <a href="/wardrobe" class="tab {% if active == 'wardrobe' %}active{% endif %}">
+    <a href="/wardrobe" class="tab {% if active == 'wardrobe' %}active{% endif %}" title="Wardrobe">
       <i class="bi bi-grid"></i><span>Wardrobe</span>
     </a>
-    <a href="/add" class="tab tab-add {% if active == 'add' %}active{% endif %}">
+    <a href="/add" class="tab tab-add {% if active == 'add' %}active{% endif %}" title="Add an item">
       <i class="bi bi-plus-lg"></i><span>Add</span>
     </a>
-    <a href="/history" class="tab {% if active == 'history' %}active{% endif %}">
+    <a href="/history" class="tab {% if active == 'history' %}active{% endif %}" title="Outfit history">
       <i class="bi bi-clock-history"></i><span>History</span>
     </a>
-    <a href="/profile" class="tab {% if active == 'profile' %}active{% endif %}">
+    <a href="/profile" class="tab {% if active == 'profile' %}active{% endif %}" title="Profile">
       <i class="bi bi-person"></i><span>Profile</span>
     </a>
   </nav>
@@ -74,13 +74,13 @@
     <div class="wa-confirm" @click.stop>
       <div class="wa-confirm-head">
         <h5 x-text="confirmDlg.title"></h5>
-        <button type="button" class="btn-close" @click="closeConfirm(false)" aria-label="Close"></button>
+        <button type="button" class="btn-close" title="Close" @click="closeConfirm(false)" aria-label="Close"></button>
       </div>
       <p class="wa-confirm-msg" x-text="confirmDlg.message"></p>
       <div class="wa-confirm-actions">
-        <button type="button" class="btn btn-outline-secondary" @click="closeConfirm(false)">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" title="Cancel" @click="closeConfirm(false)">Cancel</button>
         <button type="button" class="btn" :class="confirmDlg.danger ? 'btn-danger' : 'btn-primary'"
-                @click="closeConfirm(true)" x-text="confirmDlg.confirmLabel"></button>
+                :title="confirmDlg.confirmLabel" @click="closeConfirm(true)" x-text="confirmDlg.confirmLabel"></button>
       </div>
     </div>
   </div>

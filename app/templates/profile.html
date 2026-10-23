@@ -124,7 +124,7 @@
         <template x-for="(mem, idx) in memories" :key="idx">
           <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
             <span x-text="mem.text"></span>
-            <button type="button" class="btn btn-sm btn-outline-danger" @click="forget(idx)">Delete</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" title="Forget this preference" @click="forget(idx)">Delete</button>
           </div>
         </template>
       </div>
@@ -136,19 +136,19 @@
       <input class="form-control" type="password" x-model="currentPassword" autocomplete="current-password" />
       <label class="form-label mt-2">New password</label>
       <input class="form-control" type="password" x-model="nextPassword" autocomplete="new-password" />
-      <button type="button" class="btn btn-outline-primary mt-2" @click="changePassword()" :disabled="saving">
+      <button type="button" class="btn btn-outline-primary mt-2" title="Save a new password" @click="changePassword()" :disabled="saving">
         Update password
       </button>
     </div>
 
     <div class="d-flex gap-2 mt-3">
-      <button type="submit" class="btn btn-gradient flex-fill" :disabled="saving">
+      <button type="submit" class="btn btn-gradient flex-fill" title="Save profile" :disabled="saving">
         <span x-text="form.id ? 'Update' : 'Save'"></span>
       </button>
       <template x-if="form.id">
-        <button type="button" class="btn btn-outline-danger" @click="remove()"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-outline-danger" title="Delete User" @click="remove()"><i class="bi bi-trash"></i></button>
       </template>
-      <button type="button" class="btn btn-outline-secondary" @click="newUser()">Cancel</button>
+      <button type="button" class="btn btn-outline-secondary" title="Discard changes and go home" @click="location.href = '/'">Cancel</button>
     </div>
   </form>
 </div>

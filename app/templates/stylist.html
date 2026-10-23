@@ -8,7 +8,7 @@
       <div class="section-title mb-1"><i class="bi bi-chat-heart"></i> Stylist</div>
       <p class="muted small mb-0">Ask what to wear, or how to style something you own. Inspiration photos are not your clothes.</p>
     </div>
-    <button type="button" class="btn btn-sm btn-outline-secondary" @click="fresh()" :disabled="busy || !messages.length">New chat</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Clear this conversation. Style memories stay." @click="fresh()" :disabled="busy || !messages.length">New chat</button>
   </div>
 
   <template x-if="!hasUser">
@@ -58,7 +58,7 @@
             <template x-if="msg.extras && msg.extras.ideas">
               <div class="pin-card">
                 <p>Find styles for your “<span x-text="pinLabel(msg)"></span>” on Pinterest.</p>
-                <a class="btn btn-primary w-100" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
+                <a class="btn btn-primary w-100" title="Open this search on Pinterest" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
                   Open Pinterest
                 </a>
               </div>
@@ -70,7 +70,7 @@
 
       <form class="chat-compose" @submit.prevent="send()">
         <input class="form-control" x-model="draft" placeholder="Ask your stylist" :disabled="busy" />
-        <button class="btn btn-primary" type="submit" :disabled="busy || !draft.trim()">Send</button>
+        <button class="btn btn-primary" type="submit" title="Send message" :disabled="busy || !draft.trim()">Send</button>
       </form>
     </div>
   </template>

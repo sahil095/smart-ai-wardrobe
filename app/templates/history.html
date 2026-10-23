@@ -16,9 +16,9 @@
   <template x-if="hasUser">
   <div>
     <div class="seg-chips">
-      <button type="button" class="chip" :class="{selected: tab === 'generated'}" @click="tab = 'generated'">Generated</button>
-      <button type="button" class="chip" :class="{selected: tab === 'saved'}" @click="tab = 'saved'">Saved</button>
-      <button type="button" class="chip" :class="{selected: tab === 'worn'}" @click="tab = 'worn'">Worn</button>
+      <button type="button" class="chip" title="Outfits the generator made" :class="{selected: tab === 'generated'}" @click="tab = 'generated'">Generated</button>
+      <button type="button" class="chip" title="Looks you starred" :class="{selected: tab === 'saved'}" @click="tab = 'saved'">Saved</button>
+      <button type="button" class="chip" title="Looks you marked as worn" :class="{selected: tab === 'worn'}" @click="tab = 'worn'">Worn</button>
     </div>
 
     <div class="spinner-wrap" x-show="loading"><div class="spinner-border text-primary"></div></div>
@@ -26,7 +26,7 @@
     <!-- Generated -->
     <div x-show="!loading && tab === 'generated'">
       <div class="d-flex justify-content-end mb-2" x-show="entries.length">
-        <button type="button" class="btn btn-sm btn-outline-danger" @click="clearGenerated()" :disabled="busy">
+        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete all generated outfits" @click="clearGenerated()" :disabled="busy">
           <i class="bi bi-trash"></i> Delete all
         </button>
       </div>
@@ -46,7 +46,7 @@
               <div class="muted small" x-show="entry.context && entry.context.weather"
                    x-text="weatherLabel(entry.context)"></div>
             </div>
-            <button class="btn btn-sm btn-outline-danger" @click="remove(entry.id)"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Delete this generated outfit" @click="remove(entry.id)"><i class="bi bi-trash"></i></button>
           </div>
           <div class="row g-2">
             <template x-for="(o, idx) in entry.outfits" :key="idx">
@@ -66,10 +66,11 @@
                   <div class="small muted mt-1" x-text="summary(o)"></div>
                   <div class="outfit-actions mt-2">
                     <button type="button" class="btn btn-sm" :class="isSavedIds(outfitItemIds(o)) ? 'btn-primary' : 'btn-outline-primary'"
+                            :title="isSavedIds(outfitItemIds(o)) ? 'Remove this saved look' : 'Save this look'"
                             @click="toggleStarIds(outfitItemIds(o))" :disabled="busy">
                       <i class="bi" :class="isSavedIds(outfitItemIds(o)) ? 'bi-star-fill' : 'bi-star'"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Log that you wore this outfit"
                             @click="wearIds(outfitItemIds(o), 'generated')"
                             :disabled="busy || !canWear(outfitItemIds(o))">
                       Wear
@@ -98,7 +99,7 @@
               <b x-text="row.label || snapshotNames(row.snapshot) || 'Saved look'"></b>
               <div class="muted small" x-text="fmtDate(row.created_at)"></div>
             </div>
-            <button class="btn btn-sm btn-outline-secondary" @click="unstar(row)" :disabled="busy">
+            <button class="btn btn-sm btn-outline-secondary" title="Remove this saved look" @click="unstar(row)" :disabled="busy">
               <i class="bi bi-star-fill"></i> Unstar
             </button>
           </div>
@@ -108,7 +109,7 @@
                    :title="p.name" class="thumb-md" @error="waOnImgError($event)" />
             </template>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-secondary"
+          <button type="button" class="btn btn-sm btn-outline-secondary" title="Log that you wore this outfit"
                   @click="wearIds(row.item_ids, 'saved')"
                   :disabled="busy || !canWear(row.item_ids)">
             <i class="bi bi-check2-circle"></i> Wear this
@@ -120,7 +121,7 @@
     <!-- Worn -->
     <div x-show="!loading && tab === 'worn'">
       <div class="d-flex justify-content-end mb-2" x-show="worn.length">
-        <button type="button" class="btn btn-sm btn-outline-danger" @click="clearWorn()" :disabled="busy">
+        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete all worn history and reset last-worn dates" @click="clearWorn()" :disabled="busy">
           <i class="bi bi-trash"></i> Delete all
         </button>
       </div>
@@ -142,7 +143,7 @@
                    :title="p.name" class="thumb-md" @error="waOnImgError($event)" />
             </template>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-secondary" @click="laundrySet(row.item_ids)" :disabled="busy">
+          <button type="button" class="btn btn-sm btn-outline-secondary" title="Mark these pieces as in laundry" @click="laundrySet(row.item_ids)" :disabled="busy">
             <i class="bi bi-basket"></i> Send to laundry
           </button>
         </div>
