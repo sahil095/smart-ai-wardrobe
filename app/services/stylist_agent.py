@@ -425,29 +425,93 @@ def _query_from_text(text: str) -> str:
     return core
 
 
-def _best_item(items: list[WardrobeItem], text: str) -> WardrobeItem | None:
-    """Pick the owned piece named in the question, if one is clearly mentioned."""
+def _compact(text: str) -> str:
+    """Ignore spaces and punctuation so 'pull over' matches 'pullover'."""
+    return re.sub(r"[^a-z0-9]", "", (text or "").lower())
+
+
+_COLOR_ALT = {"grey": "gray", "gray": "grey"}
+_PART_SPLIT = re.compile(r"\b(?:and|&|with|plus)\b|,", re.I)
+
+
+def _color_hit(color: str, blob: str) -> bool:
+    name = (color or "").strip().lower()
+    if not name:
+        return False
+    if re.search(rf"\b{re.escape(name)}\b", blob):
+        return True
+    alt = _COLOR_ALT.get(name)
+    return bool(alt and re.search(rf"\b{re.escape(alt)}\b", blob))
+
+
+def _kind_hit(kind: str, blob: str, compact_blob: str) -> bool:
+    name = (kind or "").strip().lower()
+    if not name:
+        return False
+    if name in blob:
+        return True
+    compact = _compact(name)
+    return len(compact) >= 4 and compact in compact_blob
+
+
+def _score_item(item: WardrobeItem, text: str) -> int:
     blob = (text or "").lower()
+    compact_blob = _compact(text)
+    points = 0
+    name = (item.name or "").lower()
+    if name and name in blob:
+        points += 8
+    for token in re.findall(r"[a-z0-9]+", name):
+        if len(token) > 2 and token in blob:
+            points += 2
+    if _color_hit(item.primary_color or "", blob):
+        points += 2
+    kind = item.subcategory or item.category or ""
+    if _kind_hit(kind, blob, compact_blob):
+        points += 3
+    return points
+
+
+def _best_item(items: list[WardrobeItem], text: str) -> WardrobeItem | None:
+    """Pick the owned piece named in one part of the question."""
     best: WardrobeItem | None = None
     score = 0
     for item in items:
-        points = 0
-        name = (item.name or "").lower()
-        if name and name in blob:
-            points += 8
-        for token in re.findall(r"[a-z0-9]+", name):
-            if len(token) > 2 and token in blob:
-                points += 2
-        color = (item.primary_color or "").lower()
-        kind = (item.subcategory or item.category or "").lower()
-        if color and color in blob:
-            points += 2
-        if kind and kind in blob:
-            points += 3
+        points = _score_item(item, text)
         if points > score:
             score = points
             best = item
     return best if score >= 3 else None
+
+
+def _spoken_phrase(text: str) -> str:
+    core = _FILLER.sub(" ", text or "")
+    core = re.sub(r"[^a-z0-9\s]", " ", core.lower())
+    return " ".join(core.split())
+
+
+def _mentioned_phrases(items: list[WardrobeItem], text: str) -> list[str]:
+    """Every garment the question names, not only the closest closet match."""
+    parts = [part.strip() for part in _PART_SPLIT.split(text or "") if part.strip()]
+    if len(parts) < 2:
+        item = _best_item(items, text)
+        if item:
+            return [_item_phrase(item)]
+        spoken = _spoken_phrase(text)
+        return [spoken] if spoken else ["this piece"]
+
+    phrases: list[str] = []
+    seen: set[int] = set()
+    for part in parts:
+        item = _best_item(items, part)
+        if item and item.id not in seen:
+            seen.add(item.id)
+            phrases.append(_item_phrase(item))
+            continue
+        spoken = _spoken_phrase(part)
+        if spoken:
+            phrases.append(spoken)
+    return phrases or ["this piece"]
 
 
 def _clean_args(raw) -> dict:
@@ -508,15 +572,19 @@ def _item_phrase(item: WardrobeItem | None, query: str = "") -> str:
 
 
 async def _inspiration_reply(session: StylistSession, user_text: str) -> dict:
-    """A Pinterest search for the piece. Does not build a closet outfit."""
+    """A Pinterest search for every piece named in the question."""
     items = await session._items()
-    item = _best_item(items, user_text)
-    if item:
-        await session._ideas({"item_id": item.id})
-    elif not session.ideas:
-        await session._ideas({"query": _query_from_text(user_text)})
+    phrases = _mentioned_phrases(items, user_text)
+    label = " and ".join(phrases)
+    if len(phrases) == 1:
+        item = _best_item(items, user_text)
+        if item:
+            await session._ideas({"item_id": item.id})
+        elif not session.ideas:
+            await session._ideas({"query": _query_from_text(user_text)})
+    else:
+        await session._ideas({"query": f"{' '.join(phrases)} outfit"})
     ideas = dict(session.ideas or {})
-    label = _item_phrase(item, ideas.get("query") or "")
     ideas["label"] = label
     session.ideas = ideas
     return {

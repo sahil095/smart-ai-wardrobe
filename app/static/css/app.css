@@ -591,6 +591,13 @@ a.worn-strip, a.gaps-teaser {
   line-height: 1.35;
   margin-bottom: 14px;
 }
+.pin-card .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
 .look-pieces {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
