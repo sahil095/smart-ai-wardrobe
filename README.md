@@ -11,6 +11,7 @@ per run.
 
 ## What you can do
 
+- **Accounts:** each person signs in with a username and password. Usernames are unique. A closet is visible only to the account that owns it. The first time you open the app after this change, set a login on the existing wardrobe before you share the link. Friends use **Create account** and start with an empty closet.
 - **Wardrobe:** add items with photos and tags; filter by category, season,
   laundry, favorites, and category-specific attributes (e.g. shoe sole/height).
   Only **Clean** items are eligible for generate.
@@ -198,6 +199,7 @@ DATABASE_URL=mysql+pymysql://user:password@localhost:3306/wardrobe_ai
 | `IMAGE_ASPECT` | Standardized aspect ratio | `1:1` |
 | `GAP_CACHE_HOURS` | Reuse a gaps analysis this long | `24` |
 | `PEXELS_API_KEY` | In-app style-inspiration photos (optional) | *(empty → Pinterest link only)* |
+| `SECRET_KEY` | Signs the login cookie | `wardrobe-ai-dev-secret` locally; set a long random value when you share the app |
 
 **Cloudinary (optional, recommended for phones / hosting):** enable
 **AI Background Removal** on the account. Set `STANDARDIZE_IMAGES=false` to

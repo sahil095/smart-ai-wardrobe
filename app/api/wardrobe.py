@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import current_user, own
 from app.models import User, WardrobeItem
 from app.schemas import (
     WardrobeGapsOut,
@@ -28,8 +29,10 @@ def list_items(
     favorites_only: bool = False,
     search: str | None = None,
     attrs: str | None = None,
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    own(user, user_id)
     stmt = select(WardrobeItem).where(WardrobeItem.user_id == user_id)
     if category:
         stmt = stmt.where(WardrobeItem.category == category)
@@ -77,7 +80,13 @@ def list_items(
 
 
 @router.get("/gaps", response_model=WardrobeGapsOut)
-def get_gaps(user_id: int, refresh: bool = False, db: Session = Depends(get_db)):
+def get_gaps(
+    user_id: int,
+    refresh: bool = False,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(user, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     items = db.scalars(
@@ -87,7 +96,12 @@ def get_gaps(user_id: int, refresh: bool = False, db: Session = Depends(get_db))
 
 
 @router.post("/gaps", response_model=WardrobeGapsOut)
-def refresh_gaps(user_id: int, db: Session = Depends(get_db)):
+def refresh_gaps(
+    user_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(user, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     items = db.scalars(
@@ -97,7 +111,12 @@ def refresh_gaps(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=WardrobeItemOut, status_code=status.HTTP_201_CREATED)
-def create_item(payload: WardrobeItemCreate, db: Session = Depends(get_db)):
+def create_item(
+    payload: WardrobeItemCreate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(user, payload.user_id)
     if not db.get(User, payload.user_id):
         raise HTTPException(status_code=404, detail="User not found")
     item = WardrobeItem(**payload.model_dump())
@@ -108,19 +127,26 @@ def create_item(payload: WardrobeItemCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{item_id}", response_model=WardrobeItemOut)
-def get_item(item_id: int, db: Session = Depends(get_db)):
+def get_item(
+    item_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     item = db.get(WardrobeItem, item_id)
-    if not item:
+    if not item or item.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
 
 
 @router.put("/{item_id}", response_model=WardrobeItemOut)
 def update_item(
-    item_id: int, payload: WardrobeItemUpdate, db: Session = Depends(get_db)
+    item_id: int,
+    payload: WardrobeItemUpdate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
     item = db.get(WardrobeItem, item_id)
-    if not item:
+    if not item or item.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
@@ -130,9 +156,13 @@ def update_item(
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_item(item_id: int, db: Session = Depends(get_db)):
+def delete_item(
+    item_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     item = db.get(WardrobeItem, item_id)
-    if not item:
+    if not item or item.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
     image_service.delete_local_image(item.image_url)
     db.delete(item)
@@ -140,7 +170,10 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+):
     """Upload an image and return the original + standardized display URLs.
 
     Cloudinary uploads also return a background-removed, padded ``display_image_url``

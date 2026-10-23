@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F4EFE8" />
+  <title>Wardrobe AI — Sign in</title>
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/static/css/app.css?v=14" rel="stylesheet" />
+</head>
+<body class="login-body">
+  <main class="login-card" x-data="loginPage()" x-init="init()">
+    <h1>Wardrobe AI</h1>
+    <p class="muted">A closet is private to the person who signs in.</p>
+
+    <p class="login-error" x-show="error" x-text="error"></p>
+
+    <template x-if="needsClaim">
+      <form class="login-block" @submit.prevent="claim()">
+        <h2>Set a login for this wardrobe</h2>
+        <p class="muted small">Do this before you share the link. It keeps the clothes already here.</p>
+        <label class="form-label">Username</label>
+        <input class="form-control" x-model="claimName" autocomplete="username" required />
+        <label class="form-label mt-2">Password</label>
+        <input class="form-control" type="password" x-model="claimPassword" autocomplete="new-password" required />
+        <button class="btn btn-primary w-100 mt-3" type="submit" :disabled="busy">Save and sign in</button>
+      </form>
+    </template>
+
+    <form class="login-block" @submit.prevent="signIn()">
+      <h2>Sign in</h2>
+      <label class="form-label">Username</label>
+      <input class="form-control" x-model="username" autocomplete="username" required />
+      <label class="form-label mt-2">Password</label>
+      <input class="form-control" type="password" x-model="password" autocomplete="current-password" required />
+      <button class="btn btn-primary w-100 mt-3" type="submit" :disabled="busy">Sign in</button>
+    </form>
+
+    <form class="login-block" @submit.prevent="register()">
+      <h2>Create account</h2>
+      <p class="muted small">Starts an empty wardrobe. It cannot see anyone else’s clothes.</p>
+      <label class="form-label">Name</label>
+      <input class="form-control" x-model="regName" autocomplete="name" required />
+      <label class="form-label mt-2">Username</label>
+      <input class="form-control" x-model="regUser" autocomplete="username" required />
+      <label class="form-label mt-2">Password</label>
+      <input class="form-control" type="password" x-model="regPassword" autocomplete="new-password" required />
+      <button class="btn btn-outline-primary w-100 mt-3" type="submit" :disabled="busy">Create account</button>
+    </form>
+  </main>
+  <script>
+    function loginPage() {
+      return {
+        needsClaim: false, busy: false, error: "",
+        claimName: "", claimPassword: "",
+        username: "", password: "",
+        regName: "", regUser: "", regPassword: "",
+        async init() {
+          try {
+            const status = await fetch("/api/auth/status").then((r) => r.json());
+            this.needsClaim = !!status.needs_claim;
+          } catch (e) { this.error = "Could not reach the app."; }
+        },
+        async send(url, body) {
+          this.busy = true;
+          this.error = "";
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              const msg = data.detail || "Could not sign in";
+              throw new Error(typeof msg === "string" ? msg : "Could not sign in");
+            }
+            if (data.id) localStorage.setItem("wa_current_user", data.id);
+            location.href = "/";
+          } catch (e) {
+            this.error = e.message;
+          } finally {
+            this.busy = false;
+          }
+        },
+        claim() { return this.send("/api/auth/claim", { username: this.claimName, password: this.claimPassword }); },
+        signIn() { return this.send("/api/auth/login", { username: this.username, password: this.password }); },
+        register() {
+          return this.send("/api/auth/register", {
+            name: this.regName, username: this.regUser, password: this.regPassword,
+          });
+        },
+      };
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+</body>
+</html>

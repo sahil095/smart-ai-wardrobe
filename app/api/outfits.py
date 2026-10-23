@@ -7,6 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import current_user, own
 from app.models import OutfitHistory, SavedOutfit, User, WardrobeItem, WearEvent
 from app.schemas import (
     OutfitGenerateRequest,
@@ -63,8 +64,11 @@ async def _resolve_weather(req: OutfitGenerateRequest) -> dict | None:
 
 @router.post("/generate", response_model=OutfitGenerateResponse)
 async def generate_outfits(
-    req: OutfitGenerateRequest, db: Session = Depends(get_db)
+    req: OutfitGenerateRequest,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
 ):
+    own(actor, req.user_id)
     user = db.get(User, req.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -112,7 +116,13 @@ async def generate_outfits(
 
 
 @router.get("/history", response_model=list[OutfitHistoryOut])
-def list_history(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
+def list_history(
+    user_id: int,
+    limit: int = 50,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     stmt = (
         select(OutfitHistory)
         .where(OutfitHistory.user_id == user_id)
@@ -123,7 +133,12 @@ def list_history(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
 
 
 @router.delete("/history", status_code=204)
-def delete_all_history(user_id: int, db: Session = Depends(get_db)):
+def delete_all_history(
+    user_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     db.execute(delete(OutfitHistory).where(OutfitHistory.user_id == user_id))
@@ -131,16 +146,25 @@ def delete_all_history(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/history/{history_id}", status_code=204)
-def delete_history(history_id: int, db: Session = Depends(get_db)):
+def delete_history(
+    history_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     row = db.get(OutfitHistory, history_id)
-    if not row:
+    if not row or row.user_id != actor.id:
         raise HTTPException(status_code=404, detail="History entry not found")
     db.delete(row)
     db.commit()
 
 
 @router.get("/saved", response_model=list[SavedOutfitOut])
-def list_saved(user_id: int, db: Session = Depends(get_db)):
+def list_saved(
+    user_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     return db.scalars(
         select(SavedOutfit)
         .where(SavedOutfit.user_id == user_id)
@@ -149,7 +173,12 @@ def list_saved(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/save", response_model=SavedOutfitOut)
-def save_outfit(payload: OutfitIdsIn, db: Session = Depends(get_db)):
+def save_outfit(
+    payload: OutfitIdsIn,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, payload.user_id)
     if not db.get(User, payload.user_id):
         raise HTTPException(status_code=404, detail="User not found")
     ids = outfit_log.normalize_ids(payload.item_ids)
@@ -178,16 +207,26 @@ def save_outfit(payload: OutfitIdsIn, db: Session = Depends(get_db)):
 
 
 @router.delete("/saved/{saved_id}", status_code=204)
-def unsave_outfit(saved_id: int, db: Session = Depends(get_db)):
+def unsave_outfit(
+    saved_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     row = db.get(SavedOutfit, saved_id)
-    if not row:
+    if not row or row.user_id != actor.id:
         raise HTTPException(status_code=404, detail="Saved outfit not found")
     db.delete(row)
     db.commit()
 
 
 @router.get("/worn", response_model=list[WearEventOut])
-def list_worn(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
+def list_worn(
+    user_id: int,
+    limit: int = 50,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     return db.scalars(
         select(WearEvent)
         .where(WearEvent.user_id == user_id)
@@ -197,8 +236,13 @@ def list_worn(user_id: int, limit: int = 50, db: Session = Depends(get_db)):
 
 
 @router.delete("/worn", status_code=204)
-def delete_all_worn(user_id: int, db: Session = Depends(get_db)):
+def delete_all_worn(
+    user_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
     """Wipe the wear log and last_worn_at so recency no longer steers generate."""
+    own(actor, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     db.execute(delete(WearEvent).where(WearEvent.user_id == user_id))
@@ -211,7 +255,12 @@ def delete_all_worn(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/wear", response_model=WearEventOut)
-def log_wear(payload: OutfitIdsIn, db: Session = Depends(get_db)):
+def log_wear(
+    payload: OutfitIdsIn,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, payload.user_id)
     if not db.get(User, payload.user_id):
         raise HTTPException(status_code=404, detail="User not found")
     ids = outfit_log.normalize_ids(payload.item_ids)

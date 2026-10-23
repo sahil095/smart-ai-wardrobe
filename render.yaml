@@ -17,6 +17,8 @@ services:
       # Neon Postgres connection string (postgresql://...). Paste in dashboard.
       - key: DATABASE_URL
         sync: false
+      - key: SECRET_KEY
+        sync: false
       # Groq
       - key: GROQ_API_KEY
         sync: false

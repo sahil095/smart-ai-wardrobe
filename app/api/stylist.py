@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import current_user, own
 from app.models import StylistMessage, User, WardrobeItem
 from app.services import inspiration_service, memory_service, stylist_agent
 
@@ -27,7 +28,12 @@ def _message_out(row: StylistMessage) -> dict:
 
 
 @router.get("/api/stylist/messages")
-def list_messages(user_id: int, db: Session = Depends(get_db)):
+def list_messages(
+    user_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     rows = db.scalars(
@@ -39,7 +45,12 @@ def list_messages(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/api/stylist/messages", status_code=204)
-def clear_messages(user_id: int, db: Session = Depends(get_db)):
+def clear_messages(
+    user_id: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     db.execute(delete(StylistMessage).where(StylistMessage.user_id == user_id))
@@ -47,7 +58,12 @@ def clear_messages(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/stylist/chat")
-async def chat(payload: ChatIn, db: Session = Depends(get_db)):
+async def chat(
+    payload: ChatIn,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, payload.user_id)
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -93,8 +109,10 @@ async def style_ideas(
     user_id: int,
     item_id: int | None = None,
     query: str | None = None,
+    actor: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    own(actor, user_id)
     if not db.get(User, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     text = (query or "").strip()
@@ -109,7 +127,13 @@ async def style_ideas(
 
 
 @router.delete("/api/users/{user_id}/memories/{index}", status_code=204)
-def delete_memory(user_id: int, index: int, db: Session = Depends(get_db)):
+def delete_memory(
+    user_id: int,
+    index: int,
+    actor: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    own(actor, user_id)
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

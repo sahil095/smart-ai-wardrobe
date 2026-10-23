@@ -65,6 +65,8 @@ _ADDED_COLUMNS = {
     ],
     "users": [
         ("style_memories", "JSON"),
+        ("username", "VARCHAR(80)"),
+        ("password_hash", "VARCHAR(200)"),
     ],
 }
 
@@ -82,6 +84,16 @@ def ensure_schema() -> None:
         with engine.begin() as conn:
             for name, ddl in missing:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+    if insp.has_table("users"):
+        names = {idx["name"] for idx in insp.get_indexes("users")}
+        if "uq_users_username" not in names:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username "
+                        "ON users (username)"
+                    )
+                )
 
 
 def init_db() -> None:

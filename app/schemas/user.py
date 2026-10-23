@@ -52,6 +52,7 @@ class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    username: str | None = None
     style_memories: list = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

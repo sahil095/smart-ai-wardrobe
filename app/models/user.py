@@ -1,7 +1,7 @@
 """User (wardrobe owner) ORM model."""
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.session import Base
@@ -9,8 +9,11 @@ from app.database.session import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("username", name="uq_users_username"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     nickname: Mapped[str | None] = mapped_column(String(120), nullable=True)
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)

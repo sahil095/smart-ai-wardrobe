@@ -3,11 +3,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import attributes, meta, outfits, stylist, users, wardrobe, weather
+from app.api import attributes, auth, meta, outfits, stylist, users, wardrobe, weather
 from app.config import settings
 from app.database import init_db
 
@@ -29,9 +30,47 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Wardrobe AI", version="1.0.0", lifespan=lifespan)
 
+_PUBLIC_EXACT = {
+    "/login",
+    "/health",
+    "/sw.js",
+    "/manifest.webmanifest",
+    "/api/auth/status",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/claim",
+}
+
+
+@app.middleware("http")
+async def require_sign_in(request: Request, call_next):
+    path = request.url.path
+    if (
+        path.startswith("/static/")
+        or path in _PUBLIC_EXACT
+        or request.session.get("user_id")
+    ):
+        if path == "/login" and request.session.get("user_id"):
+            return RedirectResponse("/", status_code=303)
+        return await call_next(request)
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "Sign in required"}, status_code=401)
+    return RedirectResponse("/login", status_code=303)
+
+
+# SessionMiddleware is added last so it runs first and request.session exists.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    same_site="lax",
+    https_only=False,
+    max_age=60 * 60 * 24 * 30,
+)
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # API routers
+app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(wardrobe.router)
 app.include_router(weather.router)
@@ -78,6 +117,11 @@ def _page(request: Request, template: str, active: str, **ctx) -> HTMLResponse:
         template,
         {"request": request, "active": active, "outfit_count": settings.outfit_count, **ctx},
     )
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 @app.get("/", response_class=HTMLResponse)

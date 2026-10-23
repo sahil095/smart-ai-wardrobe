@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./wardrobe.db"
 
+    # Signs the login cookie. Set a long random value before sharing the app.
+    secret_key: str = "wardrobe-ai-dev-secret"
+
     # Groq
     groq_api_key: str = ""
     groq_model: str = "openai/gpt-oss-120b"

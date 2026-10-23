@@ -58,6 +58,51 @@ body {
   gap: 8px;
 }
 .brand i { color: var(--wa-accent); }
+.signed-in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--wa-muted);
+}
+.signed-in .btn { border-radius: 999px; }
+.login-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 14px;
+}
+.login-card {
+  width: min(440px, 100%);
+  background: var(--wa-surface);
+  border: 1px solid var(--wa-border);
+  border-radius: 24px;
+  box-shadow: var(--wa-shadow);
+  padding: 28px 22px 22px;
+}
+.login-card h1 {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 2rem;
+  margin: 0 0 6px;
+}
+.login-card h2 {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.25rem;
+  margin: 0 0 10px;
+}
+.login-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--wa-border);
+}
+.login-error {
+  color: #9f1239;
+  background: #fde8ee;
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 12px 0 0;
+}
 .user-switch { min-width: 132px; }
 .user-switch .form-select {
   background: var(--wa-bg);

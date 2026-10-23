@@ -38,6 +38,10 @@ const WA = {
       }
     }
     const res = await fetch(url, opts);
+    if (res.status === 401 && !url.startsWith("/api/auth/")) {
+      if (!location.pathname.startsWith("/login")) location.href = "/login";
+      throw new Error("Sign in required");
+    }
     if (res.status === 204) return null;
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -69,8 +73,7 @@ function waConfirm(opts) {
 /* ---------- Top-bar shell component ---------- */
 function appShell() {
   return {
-    users: [],
-    currentUserId: "",
+    me: null,
     toast: { show: false, msg: "", type: "" },
     confirmDlg: {
       show: false, title: "", message: "", confirmLabel: "Delete", danger: true, resolve: null,
@@ -79,44 +82,14 @@ function appShell() {
       window.addEventListener("wa-toast", (e) => this.showToast(e.detail));
       window.addEventListener("wa-confirm", (e) => this.openConfirm(e.detail));
       try {
-        this.users = await WA.get("/api/users");
-        const stored = WA.getUserId() != null ? String(WA.getUserId()) : "";
-        const ids = this.users.map((u) => String(u.id));
-        if (stored && ids.includes(stored)) {
-          this.currentUserId = stored;
-        } else if (this.users.length) {
-          this.currentUserId = String(this.users[0].id);
-          WA.setUserId(this.users[0].id);
-        } else {
-          this.currentUserId = "";
-        }
-        this.$nextTick(() => this.syncSelect());
-      } catch (e) { /* ignore on splash */ }
+        this.me = await WA.get("/api/auth/me");
+        WA.setUserId(this.me.id);
+      } catch (e) { /* sign-in redirect handles a missing session */ }
     },
-    escapeHtml(s) {
-      return String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/"/g, "&quot;");
-    },
-    userOptionsHtml() {
-      const rows = ['<option value="">No profile</option>'];
-      for (const u of this.users) {
-        const id = String(u.id);
-        const label = this.escapeHtml(u.nickname || u.name || ("User " + id));
-        const sel = id === String(this.currentUserId) ? " selected" : "";
-        rows.push(`<option value="${id}"${sel}>${label}</option>`);
-      }
-      return rows.join("");
-    },
-    syncSelect() {
-      const el = this.$refs.userSelect;
-      if (el) el.value = this.currentUserId;
-    },
-    onUserChange(value) {
-      this.currentUserId = value || "";
-      WA.setUserId(this.currentUserId || null);
-      location.reload();
+    async signOut() {
+      try { await WA.post("/api/auth/logout"); } catch (e) { /* still leave */ }
+      WA.setUserId(null);
+      location.href = "/login";
     },
     showToast({ msg, type }) {
       this.toast = { show: true, msg, type };
