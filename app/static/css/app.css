@@ -218,6 +218,17 @@ body {
 
 /* ---------- Forms ---------- */
 .form-label { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+.form-label-row { display: flex; align-items: center; gap: 2px; margin-bottom: 4px; }
+.form-label-row .form-label { margin-bottom: 0; }
+.field-help {
+  border: 0; background: transparent; color: var(--wa-muted);
+  width: 28px; height: 28px; padding: 0; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.field-help-text {
+  font-size: 0.75rem; font-weight: 400; color: var(--wa-muted);
+  margin: 0 0 6px;
+}
 .form-control, .form-select { border-radius: 12px; }
 .btn { border-radius: 12px; font-weight: 600; transition: background var(--wa-ease), color var(--wa-ease), border-color var(--wa-ease), transform var(--wa-ease); }
 .btn-primary { background: var(--wa-accent); border-color: var(--wa-accent); }

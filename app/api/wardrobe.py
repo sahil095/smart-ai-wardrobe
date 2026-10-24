@@ -14,7 +14,7 @@ from app.schemas import (
     WardrobeItemOut,
     WardrobeItemUpdate,
 )
-from app.services import gap_service, image_service
+from app.services import attribute_service, gap_service, image_service
 
 router = APIRouter(prefix="/api/wardrobe", tags=["wardrobe"])
 
@@ -72,7 +72,7 @@ def list_items(
                     i
                     for i in items
                     if all(
-                        str((i.attributes or {}).get(k, "")) == str(v)
+                        attribute_service.read_attribute(i, k) == str(v)
                         for k, v in wanted.items()
                     )
                 ]
@@ -119,7 +119,9 @@ def create_item(
     own(user, payload.user_id)
     if not db.get(User, payload.user_id):
         raise HTTPException(status_code=404, detail="User not found")
-    item = WardrobeItem(**payload.model_dump())
+    data = payload.model_dump()
+    attribute_service.promote_columns(data)
+    item = WardrobeItem(**data)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -148,7 +150,9 @@ def update_item(
     item = db.get(WardrobeItem, item_id)
     if not item or item.user_id != user.id:
         raise HTTPException(status_code=404, detail="Item not found")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    attribute_service.promote_columns(updates)
+    for key, value in updates.items():
         setattr(item, key, value)
     db.commit()
     db.refresh(item)

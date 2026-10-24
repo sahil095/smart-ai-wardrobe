@@ -91,12 +91,15 @@ def generate_attribute_schema(category: str, subcategory: str | None) -> list[di
         f"Clothing type: {target}.\n"
         "List 4-8 attributes useful for filtering a personal wardrobe. Prefer "
         "'select' fields with 3-6 concrete options; use 'text' only when options "
-        "are open-ended. Use short snake_case keys and human labels. Avoid "
-        "duplicating these already-captured fields: name, brand, color, pattern, "
-        "material, fit, size, season, weather, occasion, sleeve, neck.\n"
+        "are open-ended. Use short snake_case keys and human labels. Include "
+        "pattern, material, and fit when they describe this garment. Include "
+        "sleeve length and neck type only when the garment has them. Each "
+        "attribute needs a short help sentence in plain language. Avoid "
+        "duplicating name, brand, color, size, season, weather, and occasion.\n"
         "Respond as JSON of this exact shape:\n"
         '{ "attributes": [ {"key": "sole_type", "label": "Sole Type", '
-        '"type": "select", "options": ["Rubber", "EVA", "Leather"]} ] }'
+        '"type": "select", "help": "What the bottom of the shoe is made of.", '
+        '"options": ["Rubber", "EVA", "Leather"]} ] }'
     )
     completion = client.chat.completions.create(
         model=settings.groq_model,
@@ -119,6 +122,9 @@ def generate_attribute_schema(category: str, subcategory: str | None) -> list[di
             continue
         ftype = a.get("type") if a.get("type") in ("select", "text") else "text"
         field = {"key": str(a["key"]), "label": str(a["label"]), "type": ftype}
+        help_text = str(a.get("help") or "").strip()
+        if help_text:
+            field["help"] = help_text[:160]
         if ftype == "select":
             opts = a.get("options") or []
             opts = [str(o) for o in opts if isinstance(o, (str, int, float))]

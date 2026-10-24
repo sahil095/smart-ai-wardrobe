@@ -1,11 +1,16 @@
-"""Category-dependent attribute schemas (Phase 1).
+"""Category-dependent attribute schemas.
 
 Resolution order for a (category, subcategory):
-1. DB cache (AttributeSchema table).
-2. Groq generation (if configured) -> cached to DB.
-3. Builtin fallback from constants (category-level).
+1. Curated schema (category, then subcategory). This is the form people see.
+2. DB cache from an earlier Groq run, for a category we have not curated.
+3. Groq generation (if configured) -> cached to DB.
+4. Empty list.
 
-Returns a list of field defs: {key, label, type:'select'|'text', options?}.
+Curated schemas win even when an old AI cache exists. Those cached schemas
+were told to skip pattern, material, fit, sleeve, and neck, which are now
+part of the dynamic filters.
+
+Returns field defs: {key, label, type:'select'|'text', options?, help?}.
 """
 import logging
 
@@ -20,10 +25,6 @@ from app.services import groq_service
 logger = logging.getLogger(__name__)
 
 
-def _builtin(category: str) -> list[dict]:
-    return list(constants.BUILTIN_ATTRIBUTE_SCHEMAS.get(category, []))
-
-
 def _get_cached(db: Session, category: str, subcategory: str) -> AttributeSchema | None:
     return db.scalar(
         select(AttributeSchema).where(
@@ -33,18 +34,35 @@ def _get_cached(db: Session, category: str, subcategory: str) -> AttributeSchema
     )
 
 
+def _with_help(fields: list[dict]) -> list[dict]:
+    out = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        item = dict(field)
+        help_text = str(item.get("help") or "").strip()
+        if not help_text and item.get("label"):
+            help_text = f"Pick the {str(item['label']).lower()} that best matches this item."
+        if help_text:
+            item["help"] = help_text[:160]
+        out.append(item)
+    return out
+
+
 def get_schema(db: Session, category: str, subcategory: str | None) -> list[dict]:
     """Return the attribute field defs for a category/subcategory."""
     if not category:
         return []
     sub = (subcategory or "").strip()
 
-    # 1) Cache hit
+    curated = constants.attribute_schema(category, sub or None)
+    if curated:
+        return _with_help(curated)
+
     cached = _get_cached(db, category, sub)
     if cached and cached.schema:
-        return cached.schema
+        return _with_help(cached.schema)
 
-    # 2) Groq generation (cached to DB)
     if settings.groq_enabled:
         try:
             generated = groq_service.generate_attribute_schema(category, sub or None)
@@ -54,12 +72,41 @@ def get_schema(db: Session, category: str, subcategory: str | None) -> list[dict
                 row.source = "ai"
                 db.add(row)
                 db.commit()
-                return generated
+                return _with_help(generated)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "Attribute schema generation failed for %s/%s (%s); using builtin.",
+                "Attribute schema generation failed for %s/%s (%s).",
                 category, sub, exc,
             )
 
-    # 3) Builtin fallback (not persisted, so a later AI run can replace it)
-    return _builtin(category)
+    return []
+
+
+def promote_columns(data: dict) -> None:
+    """Copy dynamic filter values onto the matching item columns.
+
+    A missing key means that filter does not apply, so the column is cleared.
+    Skipped when ``attributes`` was not part of this write.
+    """
+    if "attributes" not in data or data["attributes"] is None:
+        return
+    attrs = data["attributes"] or {}
+    for key, column in constants.PROMOTED_ATTRIBUTE_COLUMNS.items():
+        raw = attrs.get(key)
+        if isinstance(raw, str):
+            raw = raw.strip()
+        data[column] = raw or None
+
+
+def read_attribute(item, key: str) -> str:
+    """Value for a dynamic filter, falling back to the older column."""
+    attrs = getattr(item, "attributes", None) or {}
+    raw = attrs.get(key)
+    if raw not in (None, "", []):
+        return str(raw)
+    column = constants.PROMOTED_ATTRIBUTE_COLUMNS.get(key)
+    if column:
+        raw = getattr(item, column, None)
+        if raw not in (None, "", []):
+            return str(raw)
+    return ""

@@ -37,7 +37,7 @@
         <label class="form-label">Name *</label>
         <input class="form-control" x-model="form.name" placeholder="e.g. Blue Nike Hoodie" required />
       </div>
-      <div class="col-6">
+      <div class="col-12">
         <label class="form-label">Brand</label>
         <input class="form-control" x-model="form.brand" />
       </div>
@@ -55,7 +55,7 @@
           <template x-for="s in (opts.subcategories[form.category] || [])"><option x-text="s"></option></template>
         </select>
       </div>
-      <div class="col-6">
+      <div class="col-12">
         <label class="form-label">Size</label>
         <input class="form-control" x-model="form.size" placeholder="S / 32 / UK9" />
       </div>
@@ -67,55 +67,26 @@
         <label class="form-label">Secondary Color</label>
         <input class="form-control" x-model="form.secondary_color" />
       </div>
-      <div class="col-6">
-        <label class="form-label">Pattern</label>
-        <select class="form-select" x-model="form.pattern">
-          <option value="">—</option>
-          <template x-for="p in opts.patterns"><option x-text="p"></option></template>
-        </select>
-      </div>
-      <div class="col-6">
-        <label class="form-label">Material</label>
-        <select class="form-select" x-model="form.material">
-          <option value="">—</option>
-          <template x-for="m in opts.materials"><option x-text="m"></option></template>
-        </select>
-      </div>
-      <div class="col-6">
-        <label class="form-label">Fit</label>
-        <select class="form-select" x-model="form.fit">
-          <option value="">—</option>
-          <template x-for="f in opts.preferred_fits"><option x-text="f"></option></template>
-        </select>
-      </div>
-      <div class="col-6" x-show="showField('sleeve_type')">
-        <label class="form-label">Sleeve Type</label>
-        <select class="form-select" x-model="form.sleeve_type">
-          <option value="">—</option>
-          <template x-for="s in opts.sleeve_types"><option x-text="s"></option></template>
-        </select>
-      </div>
-      <div class="col-6" x-show="showField('neck_type')">
-        <label class="form-label">Neck Type</label>
-        <select class="form-select" x-model="form.neck_type">
-          <option value="">—</option>
-          <template x-for="n in opts.neck_types"><option x-text="n"></option></template>
-        </select>
-      </div>
     </div>
 
-    <!-- Category-dependent attributes (AI-generated / builtin) -->
-    <template x-if="attrSchema.length">
+    <template x-if="form.category && (attrSchema.length || attrLoading)">
       <div>
         <div class="divider"></div>
         <label class="form-label d-flex align-items-center gap-2">
-          <i class="bi bi-stars"></i> <span x-text="(form.subcategory || form.category) + ' details'"></span>
+          <span x-text="(form.subcategory || form.category) + ' details'"></span>
           <span class="spinner-border spinner-border-sm" x-show="attrLoading"></span>
         </label>
         <div class="row g-2">
           <template x-for="field in attrSchema" :key="field.key">
             <div class="col-6">
-              <label class="form-label" x-text="field.label"></label>
+              <div class="form-label-row">
+                <label class="form-label" x-text="field.label"></label>
+                <button type="button" class="field-help" x-show="field.help" :title="field.help"
+                        :aria-label="field.help" @click="helpKey = (helpKey === field.key ? '' : field.key)">
+                  <i class="bi bi-info-circle"></i>
+                </button>
+              </div>
+              <p class="field-help-text" x-show="helpKey === field.key" x-text="field.help"></p>
               <template x-if="field.type === 'select'">
                 <select class="form-select" x-model="form.attributes[field.key]">
                   <option value="">—</option>
@@ -226,25 +197,43 @@ function itemForm() {
   return {
     opts: { subcategories: {} }, form: blankItem(null), hasUser: false,
     saving: false, toggleInArray,
-    attrSchema: [], attrLoading: false,
+    attrSchema: [], attrLoading: false, helpKey: "",
     pendingFile: null, previewUrl: "",
-    showField(field) {
-      const map = this.opts.category_field_visibility || {};
-      if (!(field in map)) return true;
-      return !this.form.category || map[field].includes(this.form.category);
+    promoted: {
+      pattern: "pattern", material: "material", fit: "fit",
+      sleeve_length: "sleeve_type", neck_type: "neck_type",
+    },
+    hydratePromoted() {
+      const attrs = this.form.attributes || {};
+      Object.entries(this.promoted).forEach(([attr, col]) => {
+        if (!attrs[attr] && this.form[col]) attrs[attr] = this.form[col];
+      });
+      this.form.attributes = attrs;
     },
     async loadAttributeSchema() {
+      this.helpKey = "";
       if (!this.form.category) { this.attrSchema = []; return; }
+      const ticket = (this._schemaTicket || 0) + 1;
+      this._schemaTicket = ticket;
       this.attrLoading = true;
       try {
         const q = new URLSearchParams({ category: this.form.category });
         if (this.form.subcategory) q.set("subcategory", this.form.subcategory);
         const res = await WA.get(`/api/attributes/schema?${q.toString()}`);
-        this.attrSchema = res.fields || [];
-        // Ensure keys exist on the attributes object for binding.
-        this.attrSchema.forEach(f => {
-          if (!(f.key in this.form.attributes)) this.form.attributes[f.key] = "";
+        if (ticket !== this._schemaTicket) return;
+        const fields = res.fields || [];
+        const keep = new Set(fields.map(f => f.key));
+        Object.keys(this.form.attributes).forEach(k => {
+          if (!keep.has(k)) delete this.form.attributes[k];
         });
+        fields.forEach(f => {
+          if (this.form.attributes[f.key] == null) this.form.attributes[f.key] = "";
+          const cur = this.form.attributes[f.key];
+          if (f.type === "select" && cur && !(f.options || []).includes(cur)) {
+            f.options = (f.options || []).concat([cur]);
+          }
+        });
+        this.attrSchema = fields;
       } catch (e) { this.attrSchema = []; }
       finally { this.attrLoading = false; }
     },
@@ -260,7 +249,8 @@ function itemForm() {
         const it = await WA.get(`/api/wardrobe/${editId}`);
         this.form = Object.assign(blankItem(uid), it);
         ["season", "weather", "occasion"].forEach(k => this.form[k] = it[k] || []);
-        this.form.attributes = it.attributes || {};
+        this.form.attributes = Object.assign({}, it.attributes || {});
+        this.hydratePromoted();
         await this.loadAttributeSchema();
       }
     },
@@ -293,8 +283,11 @@ function itemForm() {
           this.form.display_image_url = res.display_image_url || res.image_url;
           this.form.image_public_id = res.public_id || "";
         }
-        const payload = { ...this.form };
+        const payload = { ...this.form, attributes: { ...this.form.attributes } };
         delete payload.created_at; delete payload.updated_at;
+        Object.entries(this.promoted).forEach(([attr, col]) => {
+          payload[col] = payload.attributes[attr] || null;
+        });
         if (this.form.id) {
           await WA.put(`/api/wardrobe/${this.form.id}`, payload);
           waToast("Item updated", "success");

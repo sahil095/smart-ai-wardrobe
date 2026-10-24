@@ -45,7 +45,7 @@ def item_slot(item: WardrobeItem) -> str | None:
 
 
 def _item_to_dict(item: WardrobeItem) -> dict:
-    return {
+    payload = {
         "item_id": item.id,
         "name": item.name,
         "brand": item.brand,
@@ -56,6 +56,8 @@ def _item_to_dict(item: WardrobeItem) -> dict:
         "pattern": item.pattern,
         "material": item.material,
         "fit": item.fit,
+        "sleeve_length": item.sleeve_type,
+        "neck_type": item.neck_type,
         "season": item.season or [],
         "weather": item.weather or [],
         "occasion": item.occasion or [],
@@ -64,6 +66,15 @@ def _item_to_dict(item: WardrobeItem) -> dict:
         "last_worn_at": item.last_worn_at.isoformat() if item.last_worn_at else None,
         "image_url": item.image_url,
     }
+    details = {
+        key: value
+        for key, value in (item.attributes or {}).items()
+        if value not in (None, "", [])
+        and key not in ("pattern", "material", "fit", "sleeve_length", "neck_type")
+    }
+    if details:
+        payload["details"] = details
+    return payload
 
 
 def _to_piece(item: WardrobeItem) -> OutfitPiece:
