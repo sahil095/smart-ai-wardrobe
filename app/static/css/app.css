@@ -636,6 +636,7 @@ a.worn-strip, a.gaps-teaser {
   color: var(--wa-muted);
   margin-bottom: 8px;
 }
+.pin-stack { display: flex; flex-direction: column; gap: 10px; }
 .pin-card {
   background: var(--wa-bg);
   border-radius: 18px;

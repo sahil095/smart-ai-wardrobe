@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta
 from urllib.parse import quote, quote_plus
 
@@ -22,6 +23,24 @@ def normalize_query(query: str) -> str:
     return " ".join((query or "").lower().split())[:180]
 
 
+def style_query(query: str) -> str:
+    """The search both Pixabay and Pinterest should use, ending in 'outfit'."""
+    key = normalize_query(query)
+    if not key:
+        return ""
+    if not re.search(r"\boutfit\b", key):
+        key = f"{key} outfit"
+    return key[:180]
+
+
+def display_label(query: str) -> str:
+    """Header text: the search words without the trailing 'outfit'."""
+    key = style_query(query)
+    if key.endswith(" outfit"):
+        key = key[: -len(" outfit")]
+    return key or "this piece"
+
+
 def query_for_item(item: WardrobeItem) -> str:
     """Color + garment type + outfit, so results are styled looks not product shots."""
     color = (item.primary_color or "").strip()
@@ -33,8 +52,13 @@ def query_for_item(item: WardrobeItem) -> str:
 
 
 def pinterest_url(query: str) -> str:
-    q = quote_plus(normalize_query(query) or "outfit ideas")
+    q = quote_plus(style_query(query) or "outfit ideas")
     return f"https://www.pinterest.com/search/pins/?q={q}"
+
+
+def pixabay_url(query: str) -> str:
+    q = quote(style_query(query) or "outfit ideas")
+    return f"https://pixabay.com/images/search/{q}/"
 
 
 def _photo(raw: dict) -> dict | None:
@@ -89,7 +113,7 @@ async def _fetch_pixabay(query: str) -> list[dict]:
                 "q": query[:100],
                 "image_type": "photo",
                 "safesearch": "true",
-                "per_page": 8,
+                "per_page": 6,
             },
         )
         resp.raise_for_status()
@@ -99,7 +123,7 @@ async def _fetch_pixabay(query: str) -> list[dict]:
         photo = _photo_pixabay(raw)
         if photo:
             photos.append(photo)
-    return photos[:8]
+    return photos[:6]
 
 
 async def _fetch_pexels(query: str) -> list[dict]:
@@ -108,7 +132,7 @@ async def _fetch_pexels(query: str) -> list[dict]:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
             PEXELS_SEARCH,
-            params={"query": query, "per_page": 8, "orientation": "portrait"},
+            params={"query": query, "per_page": 6, "orientation": "portrait"},
             headers={"Authorization": settings.pexels_api_key},
         )
         resp.raise_for_status()
@@ -118,17 +142,19 @@ async def _fetch_pexels(query: str) -> list[dict]:
         photo = _photo(raw)
         if photo:
             photos.append(photo)
-    return photos[:8]
+    return photos[:6]
 
 
 async def search(db: Session, query: str, commit: bool = True) -> dict:
-    key = normalize_query(query)
+    key = style_query(query)
     pin = pinterest_url(key or "outfit ideas")
+    pix = pixabay_url(key or "outfit ideas")
     if not key:
         return {
             "query": "",
             "photos": [],
             "pinterest_url": pin,
+            "pixabay_url": pix,
             "cached": False,
             "note": "Add a color or garment type to search.",
         }
@@ -144,8 +170,9 @@ async def search(db: Session, query: str, commit: bool = True) -> dict:
     if fresh and provider and cached_provider == provider:
         return {
             "query": key,
-            "photos": cached.photos or [],
+            "photos": (cached.photos or [])[:6],
             "pinterest_url": pin,
+            "pixabay_url": pix,
             "cached": True,
             "provider": provider,
             "note": None if cached.photos else "No similar photos for that search. Try Pinterest.",
@@ -189,8 +216,9 @@ async def search(db: Session, query: str, commit: bool = True) -> dict:
 
     return {
         "query": key,
-        "photos": photos,
+        "photos": photos[:6],
         "pinterest_url": pin,
+        "pixabay_url": pix,
         "cached": False,
         "provider": provider,
         "note": note,

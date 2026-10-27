@@ -56,6 +56,7 @@ _INSPIRE = re.compile(
     r"\b("
     r"pinterest|inspiration|inspire|similar looks|style ideas|"
     r"style (?:my|this|the|a|an)\b|"
+    r"\bstyle\s+(?!ideas\b)|"
     r"how (?:do|to|should|can|would) (?:i |people |you )?(?:style|wear)|"
     r"how (?:is|are) .{0,40} worn|"
     r"styled|outfit ideas"
@@ -399,7 +400,7 @@ class StylistSession:
             "note": result.get("note"),
             "pinterest_url": result.get("pinterest_url"),
             "photo_count": len(result.get("photos") or []),
-            "alts": [p.get("alt") for p in (result.get("photos") or [])[:8]],
+            "alts": [p.get("alt") for p in (result.get("photos") or [])[:6]],
         }
 
 
@@ -572,23 +573,17 @@ def _item_phrase(item: WardrobeItem | None, query: str = "") -> str:
 
 
 async def _inspiration_reply(session: StylistSession, user_text: str) -> dict:
-    """A Pinterest search for every piece named in the question."""
+    """One search string for Pixabay and Pinterest, for every piece named."""
     items = await session._items()
     phrases = _mentioned_phrases(items, user_text)
-    label = " and ".join(phrases)
-    if len(phrases) == 1:
-        item = _best_item(items, user_text)
-        if item:
-            await session._ideas({"item_id": item.id})
-        elif not session.ideas:
-            await session._ideas({"query": _query_from_text(user_text)})
-    else:
-        await session._ideas({"query": f"{' '.join(phrases)} outfit"})
+    raw = " ".join(phrases).strip() or _query_from_text(user_text)
+    await session._ideas({"query": raw})
     ideas = dict(session.ideas or {})
-    ideas["label"] = label
+    ideas["label"] = ideas.get("query") and inspiration_service.display_label(ideas["query"]) or inspiration_service.display_label(raw)
     session.ideas = ideas
+    label = ideas["label"]
     return {
-        "content": f'Find styles for your "{label}" on Pinterest.',
+        "content": f'Find styles for your "{label}" on Pixabay.',
         "outfits": [],
         "ideas": ideas,
     }
