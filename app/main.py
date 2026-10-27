@@ -105,7 +105,6 @@ def health():
         "status": "ok",
         "groq_enabled": settings.groq_enabled,
         "cloudinary_enabled": settings.cloudinary_enabled,
-        "pixabay_enabled": settings.pixabay_enabled,
         "pexels_enabled": settings.pexels_enabled,
         "outfit_count": settings.outfit_count,
     }

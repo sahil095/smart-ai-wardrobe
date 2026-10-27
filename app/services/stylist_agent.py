@@ -573,7 +573,7 @@ def _item_phrase(item: WardrobeItem | None, query: str = "") -> str:
 
 
 async def _inspiration_reply(session: StylistSession, user_text: str) -> dict:
-    """One search string for Pixabay and Pinterest, for every piece named."""
+    """One Pinterest search for every piece named in the question."""
     items = await session._items()
     phrases = _mentioned_phrases(items, user_text)
     raw = " ".join(phrases).strip() or _query_from_text(user_text)
@@ -583,7 +583,7 @@ async def _inspiration_reply(session: StylistSession, user_text: str) -> dict:
     session.ideas = ideas
     label = ideas["label"]
     return {
-        "content": f'Find styles for your "{label}" on Pixabay.',
+        "content": f'Find styles for your "{label}" on Pinterest.',
         "outfits": [],
         "ideas": ideas,
     }

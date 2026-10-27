@@ -56,26 +56,11 @@
               </div>
             </template>
             <template x-if="msg.extras && msg.extras.ideas">
-              <div class="pin-stack">
-                <div class="pin-card">
-                  <p>Find styles for your “<span x-text="pinLabel(msg)"></span>” on Pixabay.</p>
-                  <div class="idea-grid" x-show="ideaPhotos(msg).length">
-                    <template x-for="(photo, i) in ideaPhotos(msg)" :key="i">
-                      <a :href="photo.source_url" target="_blank" rel="noopener" :title="photo.alt || 'Style photo'">
-                        <img :src="photo.image_url" :alt="photo.alt || 'Style photo'" />
-                      </a>
-                    </template>
-                  </div>
-                  <a class="btn btn-primary w-100" title="Open this search on Pixabay" :href="pixabayHref(msg)" target="_blank" rel="noopener">
-                    Open Pixabay
-                  </a>
-                </div>
-                <div class="pin-card">
-                  <p>Find styles for your “<span x-text="pinLabel(msg)"></span>” on Pinterest.</p>
-                  <a class="btn btn-primary w-100" title="Open this search on Pinterest" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
-                    Open Pinterest
-                  </a>
-                </div>
+              <div class="pin-card">
+                <p>Find styles for your “<span x-text="pinLabel(msg)"></span>” on Pinterest.</p>
+                <a class="btn btn-primary w-100" title="Open this search on Pinterest" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
+                  Open Pinterest
+                </a>
               </div>
             </template>
           </div>
@@ -120,21 +105,6 @@ function stylistPage() {
       const ideas = (msg.extras && msg.extras.ideas) || {};
       const raw = ideas.label || ideas.query || "this piece";
       return String(raw).replace(/\s+outfit$/i, "");
-    },
-    ideaPhotos(msg) {
-      const photos = ((msg.extras && msg.extras.ideas && msg.extras.ideas.photos) || []);
-      return photos.slice(0, 6);
-    },
-    pixabayHref(msg) {
-      const ideas = (msg.extras && msg.extras.ideas) || {};
-      if (ideas.pixabay_url) return ideas.pixabay_url;
-      let q = this.pinLabel(msg);
-      try {
-        const fromPin = new URL(ideas.pinterest_url || "").searchParams.get("q");
-        if (fromPin) q = fromPin;
-      } catch (e) { /* keep the label */ }
-      if (!/\boutfit\b/i.test(q)) q = `${q} outfit`;
-      return "https://pixabay.com/images/search/" + encodeURIComponent(q) + "/";
     },
     ask(text) {
       if (this.busy) return;

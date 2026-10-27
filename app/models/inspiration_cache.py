@@ -13,7 +13,7 @@ class InspirationCache(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     query_key: Mapped[str] = mapped_column(String(240), unique=True, nullable=False)
     photos: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
-    # "pixabay" or "pexels". Older rows are Pexels.
+    # "pexels" when the row came from Pexels. Empty on older rows.
     provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
