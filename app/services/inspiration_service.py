@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from urllib.parse import quote_plus
+from urllib.parse import quote, quote_plus
 
 import httpx
 from sqlalchemy import select
@@ -15,6 +15,7 @@ from app.models import InspirationCache, WardrobeItem
 logger = logging.getLogger(__name__)
 
 PEXELS_SEARCH = "https://api.pexels.com/v1/search"
+PIXABAY_SEARCH = "https://pixabay.com/api/"
 
 
 def normalize_query(query: str) -> str:
@@ -49,6 +50,58 @@ def _photo(raw: dict) -> dict | None:
     }
 
 
+def _active_provider() -> str | None:
+    """Pixabay wins when its key is set. Pexels remains available after that."""
+    if settings.pixabay_enabled:
+        return "pixabay"
+    if settings.pexels_enabled:
+        return "pexels"
+    return None
+
+
+def _photo_pixabay(raw: dict) -> dict | None:
+    src = raw.get("webformatURL") or raw.get("largeImageURL") or raw.get("previewURL")
+    if not src:
+        return None
+    user = str(raw.get("user") or "").strip()
+    user_id = raw.get("user_id")
+    profile = ""
+    if user and user_id:
+        profile = f"https://pixabay.com/users/{quote(user, safe='')}-{user_id}/"
+    alt = str(raw.get("tags") or "Outfit inspiration").strip() or "Outfit inspiration"
+    return {
+        "image_url": src,
+        "alt": alt[:180],
+        "photographer": user,
+        "photographer_url": profile,
+        "source_url": raw.get("pageURL") or "https://pixabay.com/",
+    }
+
+
+async def _fetch_pixabay(query: str) -> list[dict]:
+    if not settings.pixabay_enabled:
+        return []
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            PIXABAY_SEARCH,
+            params={
+                "key": settings.pixabay_api_key,
+                "q": query[:100],
+                "image_type": "photo",
+                "safesearch": "true",
+                "per_page": 8,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    photos = []
+    for raw in data.get("hits") or []:
+        photo = _photo_pixabay(raw)
+        if photo:
+            photos.append(photo)
+    return photos[:8]
+
+
 async def _fetch_pexels(query: str) -> list[dict]:
     if not settings.pexels_enabled:
         return []
@@ -80,23 +133,36 @@ async def search(db: Session, query: str, commit: bool = True) -> dict:
             "note": "Add a color or garment type to search.",
         }
 
+    provider = _active_provider()
     now = datetime.utcnow()
     ttl = timedelta(hours=max(1, settings.gap_cache_hours))
     cached = db.scalar(
         select(InspirationCache).where(InspirationCache.query_key == key)
     )
-    if cached and cached.created_at and (now - cached.created_at) < ttl:
+    cached_provider = (cached.provider if cached else None) or "pexels"
+    fresh = bool(cached and cached.created_at and (now - cached.created_at) < ttl)
+    if fresh and provider and cached_provider == provider:
         return {
             "query": key,
             "photos": cached.photos or [],
             "pinterest_url": pin,
             "cached": True,
-            "note": None if (cached.photos or settings.pexels_enabled) else _no_key_note(),
+            "provider": provider,
+            "note": None if cached.photos else "No similar photos for that search. Try Pinterest.",
         }
 
     photos: list[dict] = []
     note = None
-    if settings.pexels_enabled:
+    if provider == "pixabay":
+        try:
+            photos = await _fetch_pixabay(key)
+            if not photos:
+                note = "No similar photos for that search. Try Pinterest."
+        except Exception as exc:  # noqa: BLE001
+            # Do not log the exception text: it can include the request URL and key.
+            logger.warning("Pixabay search failed (%s)", exc.__class__.__name__)
+            note = "Inspiration search is unavailable right now. Pinterest still works."
+    elif provider == "pexels":
         try:
             photos = await _fetch_pexels(key)
             if not photos:
@@ -107,12 +173,15 @@ async def search(db: Session, query: str, commit: bool = True) -> dict:
     else:
         note = _no_key_note()
 
-    if settings.pexels_enabled and photos:
+    if provider and photos:
         if cached:
             cached.photos = photos
+            cached.provider = provider
             cached.created_at = now
         else:
-            db.add(InspirationCache(query_key=key, photos=photos, created_at=now))
+            db.add(InspirationCache(
+                query_key=key, photos=photos, provider=provider, created_at=now,
+            ))
         if commit:
             db.commit()
         else:
@@ -123,9 +192,10 @@ async def search(db: Session, query: str, commit: bool = True) -> dict:
         "photos": photos,
         "pinterest_url": pin,
         "cached": False,
+        "provider": provider,
         "note": note,
     }
 
 
 def _no_key_note() -> str:
-    return "Add PEXELS_API_KEY for in-app photos. Pinterest search still works."
+    return "Add PIXABAY_API_KEY for in-app photos. Pinterest search still works."

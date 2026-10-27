@@ -28,7 +28,12 @@
           </a>
         </template>
       </div>
-      <p class="small muted" x-show="result.photos.length">Photos from Pexels.</p>
+      <p class="small muted" x-show="result.photos.length">
+        Photos from
+        <a :href="result.provider === 'pexels' ? 'https://www.pexels.com/' : 'https://pixabay.com/'"
+           target="_blank" rel="noopener"
+           x-text="result.provider === 'pexels' ? 'Pexels' : 'Pixabay'"></a>.
+      </p>
       <a class="btn btn-outline-primary w-100" title="Open this search on Pinterest" :href="result.pinterest_url" target="_blank" rel="noopener">
         More on Pinterest
       </a>

@@ -60,7 +60,9 @@ class Settings(BaseSettings):
     # Wardrobe gap analysis cache
     gap_cache_hours: int = 24
 
-    # Pexels inspiration search (optional). Style ideas still open Pinterest without it.
+    # Style-idea photos. Pixabay is used when set. Pexels is the fallback
+    # once that key exists and Pixabay is empty.
+    pixabay_api_key: str = ""
     pexels_api_key: str = ""
 
     @field_validator(
@@ -71,6 +73,7 @@ class Settings(BaseSettings):
         "cloudinary_api_secret",
         "image_bg_color",
         "image_aspect",
+        "pixabay_api_key",
         "pexels_api_key",
         mode="before",
     )
@@ -93,6 +96,10 @@ class Settings(BaseSettings):
     @property
     def groq_enabled(self) -> bool:
         return bool(self.groq_api_key)
+
+    @property
+    def pixabay_enabled(self) -> bool:
+        return bool(self.pixabay_api_key)
 
     @property
     def pexels_enabled(self) -> bool:

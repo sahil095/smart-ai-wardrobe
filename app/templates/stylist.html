@@ -58,6 +58,20 @@
             <template x-if="msg.extras && msg.extras.ideas">
               <div class="pin-card">
                 <p>Find styles for your “<span x-text="pinLabel(msg)"></span>” on Pinterest.</p>
+                <div class="idea-grid" x-show="(msg.extras.ideas.photos || []).length">
+                  <template x-for="(photo, i) in msg.extras.ideas.photos" :key="i">
+                    <a :href="photo.source_url" target="_blank" rel="noopener" :title="photo.alt || 'Style photo'">
+                      <img :src="photo.image_url" :alt="photo.alt || 'Style photo'" />
+                    </a>
+                  </template>
+                </div>
+                <p class="pin-credit" x-show="(msg.extras.ideas.photos || []).length">
+                  Photos from
+                  <a :href="msg.extras.ideas.provider === 'pexels' ? 'https://www.pexels.com/' : 'https://pixabay.com/'"
+                     target="_blank" rel="noopener"
+                     x-text="msg.extras.ideas.provider === 'pexels' ? 'Pexels' : 'Pixabay'"></a>.
+                  Not your clothes.
+                </p>
                 <a class="btn btn-primary w-100" title="Open this search on Pinterest" :href="msg.extras.ideas.pinterest_url" target="_blank" rel="noopener">
                   Open Pinterest
                 </a>

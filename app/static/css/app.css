@@ -647,6 +647,14 @@ a.worn-strip, a.gaps-teaser {
   line-height: 1.35;
   margin-bottom: 14px;
 }
+.pin-card .idea-grid { margin-bottom: 10px; }
+.pin-card .pin-credit {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--wa-muted);
+  margin: 0 0 12px;
+}
 .pin-card .btn {
   display: flex;
   align-items: center;

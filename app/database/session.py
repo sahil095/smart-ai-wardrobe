@@ -68,6 +68,9 @@ _ADDED_COLUMNS = {
         ("username", "VARCHAR(80)"),
         ("password_hash", "VARCHAR(200)"),
     ],
+    "inspiration_cache": [
+        ("provider", "VARCHAR(20)"),
+    ],
 }
 
 
